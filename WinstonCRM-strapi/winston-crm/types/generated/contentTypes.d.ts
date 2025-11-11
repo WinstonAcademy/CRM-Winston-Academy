@@ -878,68 +878,6 @@ export interface ApiStudentStudent extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiUserUser extends Struct.CollectionTypeSchema {
-  collectionName: 'users';
-  info: {
-    description: 'User profile management with permissions (separate from authentication)';
-    displayName: 'User Profile';
-    pluralName: 'users';
-    singularName: 'user';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    authUser: Schema.Attribute.Relation<
-      'oneToOne',
-      'plugin::users-permissions.user'
-    >;
-    canAccessDashboard: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    canAccessLeads: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    canAccessStudents: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    canAccessUsers: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    email: Schema.Attribute.Email &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    firstName: Schema.Attribute.String;
-    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
-    lastName: Schema.Attribute.String;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::user.user'> &
-      Schema.Attribute.Private;
-    phone: Schema.Attribute.String;
-    publishedAt: Schema.Attribute.DateTime;
-    role: Schema.Attribute.Enumeration<
-      [
-        'admin',
-        'manager',
-        'supervisor',
-        'coordinator',
-        'team_member',
-        'assistant',
-        'intern',
-      ]
-    > &
-      Schema.Attribute.DefaultTo<'team_member'>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    username: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique &
-      Schema.Attribute.SetMinMaxLength<{
-        minLength: 3;
-      }>;
-  };
-}
-
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -1464,7 +1402,6 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::lead.lead': ApiLeadLead;
       'api::student.student': ApiStudentStudent;
-      'api::user.user': ApiUserUser;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
