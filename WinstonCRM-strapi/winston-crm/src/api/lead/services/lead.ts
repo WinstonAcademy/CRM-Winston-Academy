@@ -1,0 +1,5 @@
+/**
+ * lead service
+ */
+
+export default {};

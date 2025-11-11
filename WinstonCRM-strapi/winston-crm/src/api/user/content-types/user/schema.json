@@ -1,0 +1,74 @@
+{
+  "kind": "collectionType",
+  "collectionName": "users",
+  "info": {
+    "singularName": "user",
+    "pluralName": "users",
+    "displayName": "User Profile",
+    "description": "User profile management with permissions (separate from authentication)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "username": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 3
+    },
+    "email": {
+      "type": "email",
+      "required": true,
+      "unique": true
+    },
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "role": {
+      "type": "enumeration",
+      "enum": [
+        "admin",
+        "manager", 
+        "supervisor",
+        "coordinator",
+        "team_member",
+        "assistant",
+        "intern"
+      ],
+      "default": "team_member"
+    },
+    "canAccessLeads": {
+      "type": "boolean",
+      "default": false
+    },
+    "canAccessStudents": {
+      "type": "boolean",
+      "default": false
+    },
+    "canAccessUsers": {
+      "type": "boolean",
+      "default": false
+    },
+    "canAccessDashboard": {
+      "type": "boolean",
+      "default": false
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "authUser": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "actions": {
+    "users-permissions": {
+      "auth": {
+        "callback": {
+          "enabled": true,
+          "policy": ""
+        },
+        "connect": {
+          "enabled": true,
+          "policy": ""
+        },
+        "forgotPassword": {
+          "enabled": true,
+          "policy": ""
+        },
+        "resetPassword": {
+          "enabled": true,
+          "policy": ""
+        },
+        "emailConfirmation": {
+          "enabled": true,
+          "policy": ""
+        },
+        "sendEmailConfirmation": {
+          "enabled": true,
+          "policy": ""
+        },
+        "register": {
+          "enabled": true,
+          "policy": ""
+        }
+      },
+      "user": {
+        "me": {
+          "enabled": true,
+          "policy": ""
+        },
+        "find": {
+          "enabled": true,
+          "policy": ""
+        },
+        "findOne": {
+          "enabled": true,
+          "policy": ""
+        },
+        "count": {
+          "enabled": true,
+          "policy": ""
+        },
+        "create": {
+          "enabled": true,
+          "policy": ""
+        },
+        "update": {
+          "enabled": true,
+          "policy": ""
+        },
+        "destroy": {
+          "enabled": true,
+          "policy": ""
+        }
+      }
+    },
+    "api::lead.lead": {
+      "find": {
+        "enabled": true,
+        "policy": ""
+      },
+      "findOne": {
+        "enabled": true,
+        "policy": ""
+      },
+      "create": {
+        "enabled": true,
+        "policy": ""
+      },
+      "update": {
+        "enabled": true,
+        "policy": ""
+      },
+      "delete": {
+        "enabled": true,
+        "policy": ""
+      }
+    },
+    "api::student.student": {
+      "find": {
+        "enabled": true,
+        "policy": ""
+      },
+      "findOne": {
+        "enabled": true,
+        "policy": ""
+      },
+      "create": {
+        "enabled": true,
+        "policy": ""
+      },
+      "update": {
+        "enabled": true,
+        "policy": ""
+      },
+      "delete": {
+        "enabled": true,
+        "policy": ""
+      }
+    },
+    "api::user.user": {
+      "find": {
+        "enabled": true,
+        "policy": ""
+      },
+      "findOne": {
+        "enabled": true,
+        "policy": ""
+      },
+      "create": {
+        "enabled": true,
+        "policy": ""
+      },
+      "update": {
+        "enabled": true,
+        "policy": ""
+      },
+      "delete": {
+        "enabled": true,
+        "policy": ""
+      }
+    }
+  }
+}
