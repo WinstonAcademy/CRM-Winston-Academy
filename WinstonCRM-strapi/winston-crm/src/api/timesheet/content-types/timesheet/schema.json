@@ -45,8 +45,7 @@
     "employee": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "plugin::users-permissions.user",
-      "inversedBy": "timesheets"
+      "target": "plugin::users-permissions.user"
     }
   }
 }

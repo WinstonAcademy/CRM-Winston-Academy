@@ -14,15 +14,13 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
       const isAdmin = userData.userRole === 'admin';
 
-      let filters = ctx.query.filters || {};
+      const queryFilters = ctx.query.filters || {};
 
       // If not admin, only show their own timesheets
-      if (!isAdmin) {
-        filters = {
-          ...filters,
-          employee: { id: user.id }
-        };
-      }
+      const filters = !isAdmin ? {
+        ...queryFilters,
+        employee: { id: user.id }
+      } : queryFilters;
 
       const timesheets = await strapi.entityService.findMany('api::timesheet.timesheet', {
         ...ctx.query,
@@ -84,12 +82,12 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         const start = parseTime(data.startTime);
         const end = parseTime(data.endTime);
         
-        if (end <= start) {
+        if (end.getTime() <= start.getTime()) {
           errors.push('End time must be after start time');
         }
         
         // Calculate total hours
-        const hours = (end - start) / (1000 * 60 * 60);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
         
         // 4. Validate maximum hours per day (24 hours)
         if (hours > 24) {
@@ -147,7 +145,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       const isAdmin = userData.userRole === 'admin';
 
       // Get the existing timesheet
-      const existingTimesheet = await strapi.entityService.findOne('api::timesheet.timesheet', id, {
+      const existingTimesheet: any = await strapi.entityService.findOne('api::timesheet.timesheet', id, {
         populate: ['employee']
       });
 
@@ -156,7 +154,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       }
 
       // Check if user owns this timesheet or is admin
-      if (!isAdmin && existingTimesheet.employee.id !== user.id) {
+      if (!isAdmin && existingTimesheet.employee?.id !== user.id) {
         return ctx.forbidden('You can only edit your own timesheets');
       }
 
@@ -169,11 +167,11 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         const start = parseTime(data.startTime);
         const end = parseTime(data.endTime);
         
-        if (end <= start) {
+        if (end.getTime() <= start.getTime()) {
           errors.push('End time must be after start time');
         }
         
-        const hours = (end - start) / (1000 * 60 * 60);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
         
         if (hours > 24) {
           errors.push('Total hours cannot exceed 24 hours per day');
@@ -223,7 +221,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
       const isAdmin = userData.userRole === 'admin';
 
-      const timesheet = await strapi.entityService.findOne('api::timesheet.timesheet', id, {
+      const timesheet: any = await strapi.entityService.findOne('api::timesheet.timesheet', id, {
         populate: ['employee']
       });
 
@@ -232,7 +230,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       }
 
       // Check permissions
-      if (!isAdmin && timesheet.employee.id !== user.id) {
+      if (!isAdmin && timesheet.employee?.id !== user.id) {
         return ctx.forbidden('You can only delete your own timesheets');
       }
 
