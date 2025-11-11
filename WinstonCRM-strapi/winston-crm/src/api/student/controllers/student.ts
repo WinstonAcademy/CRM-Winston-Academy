@@ -60,16 +60,23 @@ export default factories.createCoreController('api::student.student', ({ strapi 
   // Override create method
   async create(ctx) {
     try {
+      console.log('📝 Creating student with data:', ctx.request.body);
+      
       const student = await strapi.entityService.create('api::student.student', {
         data: ctx.request.body.data || ctx.request.body
       });
+
+      console.log('✅ Student created successfully:', student);
 
       return {
         data: student,
         meta: {}
       };
     } catch (error) {
-      ctx.throw(500, 'Error creating student');
+      console.error('❌ Error creating student:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      ctx.throw(500, `Error creating student: ${error.message}`);
     }
   },
 
