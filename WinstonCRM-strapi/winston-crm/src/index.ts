@@ -55,6 +55,19 @@ export default {
       console.error('❌ Authenticated role not found!');
     }
 
+    // Update existing users to have canAccessTimesheets
+    console.log('🔧 Updating users with canAccessTimesheets field...');
+    const allUsers = await strapi.query('plugin::users-permissions.user').findMany();
+    for (const user of allUsers) {
+      if (user.canAccessTimesheets === null || user.canAccessTimesheets === undefined) {
+        await strapi.query('plugin::users-permissions.user').update({
+          where: { id: user.id },
+          data: { canAccessTimesheets: true }
+        });
+        console.log(`✓ Updated user ${user.email} with canAccessTimesheets`);
+      }
+    }
+
     console.log('🌱 Checking for sample data...');
 
     // Check if we already have data

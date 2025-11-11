@@ -96,6 +96,10 @@
       "type": "boolean",
       "default": true
     },
+    "canAccessTimesheets": {
+      "type": "boolean",
+      "default": true
+    },
     "phone": {
       "type": "string"
     }

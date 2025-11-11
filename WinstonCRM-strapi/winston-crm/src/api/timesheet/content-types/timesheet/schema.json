@@ -1,0 +1,53 @@
+{
+  "kind": "collectionType",
+  "collectionName": "timesheets",
+  "info": {
+    "singularName": "timesheet",
+    "pluralName": "timesheets",
+    "displayName": "Timesheet",
+    "description": "Employee time tracking"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "date": {
+      "type": "date",
+      "required": true,
+      "default": "today"
+    },
+    "startTime": {
+      "type": "time",
+      "required": true
+    },
+    "endTime": {
+      "type": "time",
+      "required": true
+    },
+    "totalHours": {
+      "type": "decimal",
+      "required": false
+    },
+    "notes": {
+      "type": "text",
+      "required": true
+    },
+    "location": {
+      "type": "enumeration",
+      "enum": ["Office", "Remote", "Hybrid"],
+      "default": "Office"
+    },
+    "workRole": {
+      "type": "string",
+      "required": true
+    },
+    "employee": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "timesheets"
+    }
+  }
+}
+
