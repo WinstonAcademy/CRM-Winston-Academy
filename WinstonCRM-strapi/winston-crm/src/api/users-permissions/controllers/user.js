@@ -7,6 +7,51 @@
 const { createCoreController } = require('@strapi/strapi').factories;
 
 module.exports = createCoreController('plugin::users-permissions.user', ({ strapi }) => ({
+  // IMPORTANT: Get current authenticated user (required for /api/users/me)
+  async me(ctx) {
+    try {
+      const user = ctx.state.user;
+
+      if (!user) {
+        return ctx.unauthorized();
+      }
+
+      // Fetch complete user data with all custom fields
+      const userData = await strapi.entityService.findOne(
+        'plugin::users-permissions.user',
+        user.id,
+        { populate: ['role'] }
+      );
+
+      // Return user data in the format expected by the frontend
+      return {
+        id: userData.id,
+        documentId: userData.documentId,
+        username: userData.username,
+        email: userData.email,
+        provider: userData.provider,
+        confirmed: userData.confirmed,
+        blocked: userData.blocked,
+        createdAt: userData.createdAt,
+        updatedAt: userData.updatedAt,
+        // Custom fields
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        userRole: userData.userRole || 'team_member',
+        role: userData.userRole || 'team_member',
+        canAccessLeads: userData.canAccessLeads || false,
+        canAccessStudents: userData.canAccessStudents || false,
+        canAccessUsers: userData.canAccessUsers || false,
+        canAccessDashboard: userData.canAccessDashboard !== false,
+        isActive: userData.isActive !== false,
+        phone: userData.phone || '',
+      };
+    } catch (error) {
+      strapi.log.error('Error in user me method:', error);
+      return ctx.badRequest('Error fetching user data');
+    }
+  },
+
   // Custom find method to get all users
   async find(ctx) {
     try {

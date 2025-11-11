@@ -10,6 +10,16 @@ const defaultRouter = createCoreRouter('plugin::users-permissions.user');
 
 const customRoutes = {
   routes: [
+    // IMPORTANT: Current user endpoint
+    {
+      method: 'GET',
+      path: '/users/me',
+      handler: 'user.me',
+      config: {
+        prefix: '',
+        policies: []
+      }
+    },
     // Public users endpoint for frontend sync
     {
       method: 'GET',
@@ -47,7 +57,8 @@ const customRoutes = {
 // Merge default routes with custom routes
 module.exports = {
   routes: [
-    ...defaultRouter.routes,
-    ...customRoutes.routes
+    ...customRoutes.routes,
+    ...defaultRouter.routes
   ]
 };
+
