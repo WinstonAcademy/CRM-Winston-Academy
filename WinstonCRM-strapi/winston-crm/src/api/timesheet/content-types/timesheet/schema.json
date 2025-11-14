@@ -34,7 +34,7 @@
     },
     "location": {
       "type": "enumeration",
-      "enum": ["Office", "Remote", "Hybrid"],
+      "enum": ["Office", "Remote"],
       "default": "Office"
     },
     "employee": {

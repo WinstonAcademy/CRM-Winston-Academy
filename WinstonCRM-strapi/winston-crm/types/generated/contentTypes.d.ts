@@ -905,7 +905,7 @@ export interface ApiTimesheetTimesheet extends Struct.CollectionTypeSchema {
       'api::timesheet.timesheet'
     > &
       Schema.Attribute.Private;
-    location: Schema.Attribute.Enumeration<['Office', 'Remote', 'Hybrid']> &
+    location: Schema.Attribute.Enumeration<['Office', 'Remote']> &
       Schema.Attribute.DefaultTo<'Office'>;
     notes: Schema.Attribute.Text & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
