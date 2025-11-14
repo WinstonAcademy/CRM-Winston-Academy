@@ -78,25 +78,36 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
 
       // 3. Validate end time is after start time and calculate total hours
       let calculatedHours = 0;
+      console.log('🔍 Timesheet data received:', JSON.stringify(data, null, 2));
+      
       if (data.startTime && data.endTime) {
+        console.log('⏰ Parsing times - Start:', data.startTime, 'End:', data.endTime);
         const start = parseTime(data.startTime);
         const end = parseTime(data.endTime);
         
+        console.log('⏰ Parsed times - Start:', start.toISOString(), 'End:', end.toISOString());
+        console.log('⏰ Time values - Start:', start.getTime(), 'End:', end.getTime());
+        
         if (end.getTime() <= start.getTime()) {
+          console.log('❌ End time is not after start time');
           errors.push('End time must be after start time');
         } else {
           // Calculate total hours
           const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          console.log('📐 Raw hours calculation:', hours);
           
           // 4. Validate maximum hours per day (24 hours)
           if (hours > 24) {
+            console.log('❌ Hours exceed 24:', hours);
             errors.push('Total hours cannot exceed 24 hours per day');
           } else {
             // Always calculate and set totalHours
             calculatedHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
-            console.log('📊 Calculated total hours:', calculatedHours, 'from', data.startTime, 'to', data.endTime);
+            console.log('✅ Calculated total hours:', calculatedHours, 'from', data.startTime, 'to', data.endTime);
           }
         }
+      } else {
+        console.log('⚠️ Missing start or end time - Start:', data.startTime, 'End:', data.endTime);
       }
 
       if (errors.length > 0) {
@@ -115,7 +126,8 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       const { workRole, ...timesheetData } = data;
       // Explicitly set totalHours to ensure it's saved
       timesheetData.totalHours = calculatedHours;
-      console.log('💾 Saving timesheet with totalHours:', timesheetData.totalHours);
+      console.log('💾 Final data being saved:', JSON.stringify(timesheetData, null, 2));
+      console.log('💾 Saving timesheet with totalHours:', timesheetData.totalHours, '(type:', typeof timesheetData.totalHours, ')');
 
       const timesheet = await strapi.entityService.create('api::timesheet.timesheet', {
         data: timesheetData,
@@ -127,6 +139,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       });
 
       console.log('✅ Timesheet created successfully:', timesheet.id);
+      console.log('📊 Created timesheet totalHours:', timesheet.totalHours, '(type:', typeof timesheet.totalHours, ')');
 
       return {
         data: timesheet,
