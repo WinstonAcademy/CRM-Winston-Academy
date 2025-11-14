@@ -81,29 +81,48 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       console.log('🔍 Timesheet data received:', JSON.stringify(data, null, 2));
       
       if (data.startTime && data.endTime) {
-        console.log('⏰ Parsing times - Start:', data.startTime, 'End:', data.endTime);
-        const start = parseTime(data.startTime);
-        const end = parseTime(data.endTime);
+        console.log('⏰ Calculating hours - Start:', data.startTime, 'End:', data.endTime);
         
-        console.log('⏰ Parsed times - Start:', start.toISOString(), 'End:', end.toISOString());
-        console.log('⏰ Time values - Start:', start.getTime(), 'End:', end.getTime());
+        // Parse time strings directly (format: HH:MM or HH:MM:SS)
+        const startParts = data.startTime.split(':');
+        const endParts = data.endTime.split(':');
         
-        if (end.getTime() <= start.getTime()) {
-          console.log('❌ End time is not after start time');
-          errors.push('End time must be after start time');
+        if (startParts.length < 2 || endParts.length < 2) {
+          errors.push('Invalid time format');
         } else {
-          // Calculate total hours
-          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-          console.log('📐 Raw hours calculation:', hours);
+          const startHours = parseInt(startParts[0], 10);
+          const startMinutes = parseInt(startParts[1], 10);
+          const endHours = parseInt(endParts[0], 10);
+          const endMinutes = parseInt(endParts[1], 10);
           
-          // 4. Validate maximum hours per day (24 hours)
-          if (hours > 24) {
-            console.log('❌ Hours exceed 24:', hours);
-            errors.push('Total hours cannot exceed 24 hours per day');
+          if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes)) {
+            errors.push('Invalid time values');
           } else {
-            // Always calculate and set totalHours
-            calculatedHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
-            console.log('✅ Calculated total hours:', calculatedHours, 'from', data.startTime, 'to', data.endTime);
+            // Convert to total minutes for easier calculation
+            const startTotalMinutes = startHours * 60 + startMinutes;
+            const endTotalMinutes = endHours * 60 + endMinutes;
+            
+            console.log('⏰ Start total minutes:', startTotalMinutes, 'End total minutes:', endTotalMinutes);
+            
+            if (endTotalMinutes <= startTotalMinutes) {
+              console.log('❌ End time is not after start time');
+              errors.push('End time must be after start time');
+            } else {
+              // Calculate total hours
+              const minutesDiff = endTotalMinutes - startTotalMinutes;
+              const hours = minutesDiff / 60;
+              console.log('📐 Minutes difference:', minutesDiff, 'Hours:', hours);
+              
+              // 4. Validate maximum hours per day (24 hours)
+              if (hours > 24) {
+                console.log('❌ Hours exceed 24:', hours);
+                errors.push('Total hours cannot exceed 24 hours per day');
+              } else {
+                // Always calculate and set totalHours
+                calculatedHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
+                console.log('✅ Calculated total hours:', calculatedHours, 'from', data.startTime, 'to', data.endTime);
+              }
+            }
           }
         }
       } else {
@@ -186,20 +205,36 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
 
       let calculatedHours = existingTimesheet.totalHours || 0;
       if (data.startTime && data.endTime) {
-        const start = parseTime(data.startTime);
-        const end = parseTime(data.endTime);
+        // Parse time strings directly (format: HH:MM or HH:MM:SS)
+        const startParts = data.startTime.split(':');
+        const endParts = data.endTime.split(':');
         
-        if (end.getTime() <= start.getTime()) {
-          errors.push('End time must be after start time');
-        } else {
-          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        if (startParts.length >= 2 && endParts.length >= 2) {
+          const startHours = parseInt(startParts[0], 10);
+          const startMinutes = parseInt(startParts[1], 10);
+          const endHours = parseInt(endParts[0], 10);
+          const endMinutes = parseInt(endParts[1], 10);
           
-          if (hours > 24) {
-            errors.push('Total hours cannot exceed 24 hours per day');
-          } else {
-            // Always calculate and set totalHours
-            calculatedHours = Math.round(hours * 100) / 100;
-            console.log('📊 Updated total hours:', calculatedHours);
+          if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
+            // Convert to total minutes for easier calculation
+            const startTotalMinutes = startHours * 60 + startMinutes;
+            const endTotalMinutes = endHours * 60 + endMinutes;
+            
+            if (endTotalMinutes <= startTotalMinutes) {
+              errors.push('End time must be after start time');
+            } else {
+              // Calculate total hours
+              const minutesDiff = endTotalMinutes - startTotalMinutes;
+              const hours = minutesDiff / 60;
+              
+              if (hours > 24) {
+                errors.push('Total hours cannot exceed 24 hours per day');
+              } else {
+                // Always calculate and set totalHours
+                calculatedHours = Math.round(hours * 100) / 100;
+                console.log('📊 Updated total hours:', calculatedHours);
+              }
+            }
           }
         }
       } else if (data.startTime || data.endTime) {
