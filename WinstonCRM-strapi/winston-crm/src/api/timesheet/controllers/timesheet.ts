@@ -385,23 +385,38 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       
       if (!user) {
         // Try to authenticate from JWT token
-        const token = ctx.request.header.authorization?.replace('Bearer ', '');
+        const authHeader = ctx.request.header.authorization || ctx.request.header.Authorization;
+        const token = authHeader?.replace(/^Bearer\s+/i, '') || authHeader;
+        
         if (token) {
           try {
             const { getService } = require('@strapi/plugin-users-permissions/server/utils');
             const jwtService = getService('jwt');
             const decodedToken = await jwtService.verify(token);
-            if (decodedToken) {
+            
+            console.log('🔐 Clock In - JWT decoded:', decodedToken);
+            
+            if (decodedToken && decodedToken.id) {
               user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
-              ctx.state.user = user;
+              if (user) {
+                ctx.state.user = user;
+                console.log('✅ Clock In - User authenticated:', user.email);
+              } else {
+                console.error('❌ Clock In - User not found for ID:', decodedToken.id);
+              }
             }
           } catch (error) {
-            console.error('JWT verification failed:', error);
+            console.error('❌ Clock In - JWT verification failed:', error);
+            console.error('❌ Clock In - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
           }
+        } else {
+          console.error('❌ Clock In - No token found in headers');
+          console.error('❌ Clock In - Headers:', JSON.stringify(ctx.request.header, null, 2));
         }
       }
       
       if (!user) {
+        console.error('❌ Clock In - Authentication failed, no user found');
         return ctx.unauthorized('You must be logged in');
       }
 
@@ -484,23 +499,38 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       
       if (!user) {
         // Try to authenticate from JWT token
-        const token = ctx.request.header.authorization?.replace('Bearer ', '');
+        const authHeader = ctx.request.header.authorization || ctx.request.header.Authorization;
+        const token = authHeader?.replace(/^Bearer\s+/i, '') || authHeader;
+        
         if (token) {
           try {
             const { getService } = require('@strapi/plugin-users-permissions/server/utils');
             const jwtService = getService('jwt');
             const decodedToken = await jwtService.verify(token);
-            if (decodedToken) {
+            
+            console.log('🔐 Clock Out - JWT decoded:', decodedToken);
+            
+            if (decodedToken && decodedToken.id) {
               user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
-              ctx.state.user = user;
+              if (user) {
+                ctx.state.user = user;
+                console.log('✅ Clock Out - User authenticated:', user.email);
+              } else {
+                console.error('❌ Clock Out - User not found for ID:', decodedToken.id);
+              }
             }
           } catch (error) {
-            console.error('JWT verification failed:', error);
+            console.error('❌ Clock Out - JWT verification failed:', error);
+            console.error('❌ Clock Out - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
           }
+        } else {
+          console.error('❌ Clock Out - No token found in headers');
+          console.error('❌ Clock Out - Headers:', JSON.stringify(ctx.request.header, null, 2));
         }
       }
       
       if (!user) {
+        console.error('❌ Clock Out - Authentication failed, no user found');
         return ctx.unauthorized('You must be logged in');
       }
 
