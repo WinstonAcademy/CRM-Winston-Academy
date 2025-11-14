@@ -143,6 +143,21 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
 
       // Remove workRole from data if it exists (it's now in User table) and ensure totalHours is included
       const { workRole, ...timesheetData } = data;
+      
+      // Convert time format from HH:mm to HH:mm:ss.SSS (Strapi requirement)
+      if (timesheetData.startTime && !timesheetData.startTime.includes('.')) {
+        const startParts = timesheetData.startTime.split(':');
+        if (startParts.length === 2) {
+          timesheetData.startTime = `${timesheetData.startTime}:00.000`;
+        }
+      }
+      if (timesheetData.endTime && !timesheetData.endTime.includes('.')) {
+        const endParts = timesheetData.endTime.split(':');
+        if (endParts.length === 2) {
+          timesheetData.endTime = `${timesheetData.endTime}:00.000`;
+        }
+      }
+      
       // Explicitly set totalHours to ensure it's saved
       timesheetData.totalHours = calculatedHours;
       console.log('💾 Final data being saved:', JSON.stringify(timesheetData, null, 2));
@@ -253,6 +268,21 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
 
       // Remove workRole from data if it exists (it's now in User table) and ensure totalHours is included
       const { workRole, ...updateData } = data;
+      
+      // Convert time format from HH:mm to HH:mm:ss.SSS (Strapi requirement)
+      if (updateData.startTime && !updateData.startTime.includes('.')) {
+        const startParts = updateData.startTime.split(':');
+        if (startParts.length === 2) {
+          updateData.startTime = `${updateData.startTime}:00.000`;
+        }
+      }
+      if (updateData.endTime && !updateData.endTime.includes('.')) {
+        const endParts = updateData.endTime.split(':');
+        if (endParts.length === 2) {
+          updateData.endTime = `${updateData.endTime}:00.000`;
+        }
+      }
+      
       // Explicitly set totalHours to ensure it's saved
       updateData.totalHours = calculatedHours;
       console.log('💾 Updating timesheet with totalHours:', updateData.totalHours);
