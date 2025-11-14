@@ -52,9 +52,7 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: {
-          scope: ['authenticated']
-        }
+        auth: false, // Bypass Strapi's permission system
       },
     },
     {
@@ -64,9 +62,7 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: {
-          scope: ['authenticated']
-        }
+        auth: false, // Bypass Strapi's permission system
       },
     },
   ],
