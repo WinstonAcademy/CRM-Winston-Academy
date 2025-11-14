@@ -32,8 +32,18 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         }
       });
 
+      // Hide totalHours for non-admin users
+      const transformedTimesheets = timesheets.map((timesheet: any) => {
+        if (!isAdmin) {
+          // Remove totalHours from response for non-admins
+          const { totalHours, ...timesheetWithoutHours } = timesheet;
+          return timesheetWithoutHours;
+        }
+        return timesheet;
+      });
+
       return {
-        data: timesheets,
+        data: transformedTimesheets,
         meta: ctx.query.pagination || {}
       };
     } catch (error) {
@@ -57,14 +67,19 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       const errors = [];
 
       // 1. Check required fields
+      // For non-admins, only startTime is required (clock in scenario)
       if (!data.date) errors.push('Date is required');
       if (!data.startTime) errors.push('Start time is required');
-      if (!data.endTime) errors.push('End time is required');
-      if (!data.notes || !data.notes.trim()) errors.push('Notes are required');
+      // End time is only required for admins or when creating complete timesheet
+      if (isAdmin && !data.endTime) errors.push('End time is required');
+      // Notes are optional for clock in, required for complete timesheet
+      if (isAdmin && (!data.notes || !data.notes.trim())) errors.push('Notes are required');
 
-      // 2. Validate date restrictions for non-admins
+      // 2. Get user's full data to check if they're admin
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
       const isAdmin = userData.userRole === 'admin';
+
+      // 3. Validate date restrictions for non-admins
       
       if (!isAdmin && data.date) {
         const entryDate = new Date(data.date);
@@ -154,6 +169,20 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         data.date = new Date().toISOString().split('T')[0];
       }
 
+      // For non-admins creating timesheet (clock in), set default values
+      if (!isAdmin) {
+        // Set default notes if not provided
+        if (!data.notes || !data.notes.trim()) {
+          data.notes = 'Clocked in';
+        }
+        // Set default location if not provided
+        if (!data.location) {
+          data.location = 'Office';
+        }
+        // Don't require endTime for clock in
+        // totalHours will be null until clock out
+      }
+
       // Remove workRole from data if it exists (it's now in User table) and ensure totalHours is included
       const { workRole, ...timesheetData } = data;
       
@@ -172,7 +201,12 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       }
       
       // Explicitly set totalHours to ensure it's saved
-      timesheetData.totalHours = calculatedHours;
+      // For clock in (no endTime), totalHours should be null
+      if (timesheetData.endTime) {
+        timesheetData.totalHours = calculatedHours;
+      } else {
+        timesheetData.totalHours = null; // Will be calculated on clock out
+      }
       console.log('💾 Final data being saved:', JSON.stringify(timesheetData, null, 2));
       console.log('💾 Saving timesheet with totalHours:', timesheetData.totalHours, '(type:', typeof timesheetData.totalHours, ')');
 
@@ -227,6 +261,18 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       }
 
       const data = ctx.request.body.data || ctx.request.body;
+
+      // For non-admins, only allow clock out (updating endTime)
+      if (!isAdmin) {
+        // Check if this is a clock out operation (only endTime is being updated)
+        const allowedFields = ['endTime', 'notes', 'location'];
+        const providedFields = Object.keys(data).filter(key => data[key] !== undefined);
+        const hasUnallowedFields = providedFields.some(field => !allowedFields.includes(field));
+        
+        if (hasUnallowedFields) {
+          return ctx.forbidden('Non-admin users can only clock out. Please use the clock out button.');
+        }
+      }
 
       // Validation (same as create)
       const errors = [];
@@ -328,6 +374,201 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
     } catch (error) {
       console.error('Error updating timesheet:', error);
       ctx.throw(500, 'Error updating timesheet');
+    }
+  },
+
+  // Clock In - Create timesheet with start time only (for non-admins)
+  async clockIn(ctx) {
+    try {
+      const user = ctx.state.user;
+      
+      if (!user) {
+        return ctx.unauthorized('You must be logged in');
+      }
+
+      // Get user's full data
+      const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
+      const isAdmin = userData.userRole === 'admin';
+
+      // Get today's date
+      const today = new Date().toISOString().split('T')[0];
+
+      // Check if user already has a timesheet for today with no endTime (already clocked in)
+      const existingTimesheet = await strapi.entityService.findMany('api::timesheet.timesheet', {
+        filters: {
+          employee: { id: user.id },
+          date: today,
+          endTime: { $null: true }
+        },
+        limit: 1
+      });
+
+      if (existingTimesheet.length > 0) {
+        return ctx.badRequest('You are already clocked in today. Please clock out first.');
+      }
+
+      // Get current time in HH:mm format
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${hours}:${minutes}:00.000`;
+
+      // Get optional data from request body
+      const requestData = ctx.request.body.data || ctx.request.body || {};
+      const location = requestData.location || 'Office';
+      const notes = requestData.notes || 'Clocked in';
+
+      // Create timesheet with start time only
+      const timesheetData = {
+        date: today,
+        startTime: currentTime,
+        endTime: null,
+        totalHours: null,
+        notes: notes,
+        location: location,
+        employee: user.id
+      };
+
+      console.log('🕐 Clock In - Creating timesheet:', timesheetData);
+
+      const timesheet = await strapi.entityService.create('api::timesheet.timesheet', {
+        data: timesheetData,
+        populate: {
+          employee: {
+            fields: ['id', 'username', 'email', 'firstName', 'lastName', 'workRole']
+          }
+        }
+      });
+
+      // Remove totalHours from response for non-admins
+      if (!isAdmin && timesheet.totalHours !== null && timesheet.totalHours !== undefined) {
+        delete timesheet.totalHours;
+      }
+
+      console.log('✅ Clock In successful:', timesheet.id);
+
+      return {
+        data: timesheet,
+        meta: {}
+      };
+    } catch (error) {
+      console.error('Error clocking in:', error);
+      ctx.throw(500, error.message || 'Error clocking in');
+    }
+  },
+
+  // Clock Out - Update timesheet with end time (for non-admins)
+  async clockOut(ctx) {
+    try {
+      const user = ctx.state.user;
+      
+      if (!user) {
+        return ctx.unauthorized('You must be logged in');
+      }
+
+      // Get user's full data
+      const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
+      const isAdmin = userData.userRole === 'admin';
+
+      // Get today's date
+      const today = new Date().toISOString().split('T')[0];
+
+      // Find today's timesheet with no endTime (clocked in but not clocked out)
+      const existingTimesheets = await strapi.entityService.findMany('api::timesheet.timesheet', {
+        filters: {
+          employee: { id: user.id },
+          date: today,
+          endTime: { $null: true }
+        },
+        populate: ['employee'],
+        limit: 1
+      });
+
+      if (existingTimesheets.length === 0) {
+        return ctx.badRequest('Please clock in first. No active timesheet found for today.');
+      }
+
+      const existingTimesheet = existingTimesheets[0];
+
+      // Get current time in HH:mm format
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${hours}:${minutes}:00.000`;
+
+      // Calculate total hours
+      let calculatedHours = 0;
+      if (existingTimesheet.startTime) {
+        // Parse time strings - handle both HH:MM and HH:MM:SS.SSS formats
+        const startTimeClean = existingTimesheet.startTime.split('.')[0];
+        const startParts = startTimeClean.split(':');
+        
+        if (startParts.length >= 2) {
+          const startHours = parseInt(startParts[0], 10);
+          const startMinutes = parseInt(startParts[1], 10) || 0;
+          const endHours = parseInt(hours, 10);
+          const endMinutes = parseInt(minutes, 10) || 0;
+          
+          if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
+            const startTotalMinutes = startHours * 60 + startMinutes;
+            const endTotalMinutes = endHours * 60 + endMinutes;
+            
+            if (endTotalMinutes > startTotalMinutes) {
+              const minutesDiff = endTotalMinutes - startTotalMinutes;
+              const hours = minutesDiff / 60;
+              
+              if (hours <= 24) {
+                calculatedHours = Math.round(hours * 100) / 100;
+              } else {
+                return ctx.badRequest('Total hours cannot exceed 24 hours per day');
+              }
+            } else {
+              return ctx.badRequest('End time must be after start time');
+            }
+          }
+        }
+      }
+
+      // Get optional data from request body
+      const requestData = ctx.request.body.data || ctx.request.body || {};
+      const updateData: any = {
+        endTime: currentTime,
+        totalHours: calculatedHours
+      };
+
+      // Allow updating notes and location on clock out
+      if (requestData.notes !== undefined) {
+        updateData.notes = requestData.notes;
+      }
+      if (requestData.location !== undefined) {
+        updateData.location = requestData.location;
+      }
+
+      console.log('🕐 Clock Out - Updating timesheet:', existingTimesheet.id, 'with endTime:', currentTime, 'totalHours:', calculatedHours);
+
+      const updatedTimesheet = await strapi.entityService.update('api::timesheet.timesheet', existingTimesheet.id, {
+        data: updateData,
+        populate: {
+          employee: {
+            fields: ['id', 'username', 'email', 'firstName', 'lastName', 'workRole']
+          }
+        }
+      });
+
+      // Remove totalHours from response for non-admins
+      if (!isAdmin && updatedTimesheet.totalHours !== null && updatedTimesheet.totalHours !== undefined) {
+        delete updatedTimesheet.totalHours;
+      }
+
+      console.log('✅ Clock Out successful:', updatedTimesheet.id);
+
+      return {
+        data: updatedTimesheet,
+        meta: {}
+      };
+    } catch (error) {
+      console.error('Error clocking out:', error);
+      ctx.throw(500, error.message || 'Error clocking out');
     }
   },
 
