@@ -385,8 +385,20 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       
       if (!user) {
         // Try to authenticate from JWT token
-        const authHeader = ctx.request.header.authorization || ctx.request.header.Authorization;
-        const token = authHeader?.replace(/^Bearer\s+/i, '') || authHeader;
+        // Check multiple possible header formats
+        const authHeader = ctx.request.header?.authorization || 
+                          ctx.request.header?.Authorization || 
+                          ctx.headers?.authorization || 
+                          ctx.headers?.Authorization;
+        
+        let token = null;
+        if (authHeader) {
+          // Handle both "Bearer token" and just "token" formats
+          token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        }
+        
+        console.log('🔐 Clock In - Auth header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'No header');
+        console.log('🔐 Clock In - Extracted token:', token ? `${token.substring(0, 30)}...` : 'No token');
         
         if (token) {
           try {
@@ -407,11 +419,11 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
             }
           } catch (error) {
             console.error('❌ Clock In - JWT verification failed:', error);
-            console.error('❌ Clock In - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+            console.error('❌ Clock In - Error details:', error.message || error);
           }
         } else {
           console.error('❌ Clock In - No token found in headers');
-          console.error('❌ Clock In - Headers:', JSON.stringify(ctx.request.header, null, 2));
+          console.error('❌ Clock In - Available headers:', Object.keys(ctx.request.header || {}));
         }
       }
       
@@ -499,8 +511,20 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       
       if (!user) {
         // Try to authenticate from JWT token
-        const authHeader = ctx.request.header.authorization || ctx.request.header.Authorization;
-        const token = authHeader?.replace(/^Bearer\s+/i, '') || authHeader;
+        // Check multiple possible header formats
+        const authHeader = ctx.request.header?.authorization || 
+                          ctx.request.header?.Authorization || 
+                          ctx.headers?.authorization || 
+                          ctx.headers?.Authorization;
+        
+        let token = null;
+        if (authHeader) {
+          // Handle both "Bearer token" and just "token" formats
+          token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        }
+        
+        console.log('🔐 Clock Out - Auth header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'No header');
+        console.log('🔐 Clock Out - Extracted token:', token ? `${token.substring(0, 30)}...` : 'No token');
         
         if (token) {
           try {
@@ -521,11 +545,11 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
             }
           } catch (error) {
             console.error('❌ Clock Out - JWT verification failed:', error);
-            console.error('❌ Clock Out - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+            console.error('❌ Clock Out - Error details:', error.message || error);
           }
         } else {
           console.error('❌ Clock Out - No token found in headers');
-          console.error('❌ Clock Out - Headers:', JSON.stringify(ctx.request.header, null, 2));
+          console.error('❌ Clock Out - Available headers:', Object.keys(ctx.request.header || {}));
         }
       }
       
