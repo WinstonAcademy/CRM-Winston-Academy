@@ -133,8 +133,13 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         return ctx.badRequest('Validation failed', { errors });
       }
 
-      // Set employee to current user (employees can only create their own timesheets)
-      data.employee = user.id;
+      // Set employee - admins can set any user, employees can only set themselves
+      if (!data.employee) {
+        data.employee = user.id; // Default to current user
+      } else if (!isAdmin && data.employee !== user.id) {
+        // Non-admins cannot set employee to someone else
+        return ctx.forbidden('You can only create timesheets for yourself');
+      }
 
       // Set default date to today if not provided
       if (!data.date) {
@@ -264,6 +269,13 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       // Only admin can change the date
       if (!isAdmin && data.date && data.date !== existingTimesheet.date) {
         return ctx.forbidden('Only admins can change the timesheet date');
+      }
+
+      // Only admin can change the employee
+      if (data.employee !== undefined) {
+        if (!isAdmin && data.employee !== existingTimesheet.employee?.id) {
+          return ctx.forbidden('Only admins can change the timesheet employee');
+        }
       }
 
       // Remove workRole from data if it exists (it's now in User table) and ensure totalHours is included
