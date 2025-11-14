@@ -52,6 +52,9 @@ export default {
       config: {
         policies: [],
         middlewares: [],
+        auth: {
+          scope: ['authenticated']
+        }
       },
     },
     {
@@ -61,6 +64,9 @@ export default {
       config: {
         policies: [],
         middlewares: [],
+        auth: {
+          scope: ['authenticated']
+        }
       },
     },
   ],
