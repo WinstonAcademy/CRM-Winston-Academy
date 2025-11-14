@@ -27,7 +27,7 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         filters,
         populate: {
           employee: {
-            fields: ['id', 'username', 'email', 'firstName', 'lastName']
+            fields: ['id', 'username', 'email', 'firstName', 'lastName', 'workRole']
           }
         }
       });
@@ -61,7 +61,6 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       if (!data.startTime) errors.push('Start time is required');
       if (!data.endTime) errors.push('End time is required');
       if (!data.notes || !data.notes.trim()) errors.push('Notes are required');
-      if (!data.workRole || !data.workRole.trim()) errors.push('Role/work type is required');
 
       // 2. Validate date is not in future (only admin can set future dates)
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
@@ -77,24 +76,29 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         }
       }
 
-      // 3. Validate end time is after start time
+      // 3. Validate end time is after start time and calculate total hours
       if (data.startTime && data.endTime) {
         const start = parseTime(data.startTime);
         const end = parseTime(data.endTime);
         
         if (end.getTime() <= start.getTime()) {
           errors.push('End time must be after start time');
+        } else {
+          // Calculate total hours
+          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          
+          // 4. Validate maximum hours per day (24 hours)
+          if (hours > 24) {
+            errors.push('Total hours cannot exceed 24 hours per day');
+          } else {
+            // Always calculate and set totalHours
+            data.totalHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
+            console.log('📊 Calculated total hours:', data.totalHours, 'from', data.startTime, 'to', data.endTime);
+          }
         }
-        
-        // Calculate total hours
-        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        
-        // 4. Validate maximum hours per day (24 hours)
-        if (hours > 24) {
-          errors.push('Total hours cannot exceed 24 hours per day');
-        }
-        
-        data.totalHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
+      } else {
+        // If times are missing, set totalHours to 0
+        data.totalHours = 0;
       }
 
       if (errors.length > 0) {
@@ -109,11 +113,14 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         data.date = new Date().toISOString().split('T')[0];
       }
 
+      // Remove workRole from data if it exists (it's now in User table)
+      const { workRole, ...timesheetData } = data;
+
       const timesheet = await strapi.entityService.create('api::timesheet.timesheet', {
-        data,
+        data: timesheetData,
         populate: {
           employee: {
-            fields: ['id', 'username', 'email', 'firstName', 'lastName']
+            fields: ['id', 'username', 'email', 'firstName', 'lastName', 'workRole']
           }
         }
       });
@@ -169,15 +176,20 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         
         if (end.getTime() <= start.getTime()) {
           errors.push('End time must be after start time');
+        } else {
+          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          
+          if (hours > 24) {
+            errors.push('Total hours cannot exceed 24 hours per day');
+          } else {
+            // Always calculate and set totalHours
+            data.totalHours = Math.round(hours * 100) / 100;
+            console.log('📊 Updated total hours:', data.totalHours);
+          }
         }
-        
-        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        
-        if (hours > 24) {
-          errors.push('Total hours cannot exceed 24 hours per day');
-        }
-        
-        data.totalHours = Math.round(hours * 100) / 100;
+      } else if (data.startTime || data.endTime) {
+        // If only one time is provided, set totalHours to 0
+        data.totalHours = 0;
       }
 
       if (errors.length > 0) {
@@ -189,11 +201,14 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         return ctx.forbidden('Only admins can change the timesheet date');
       }
 
+      // Remove workRole from data if it exists (it's now in User table)
+      const { workRole, ...updateData } = data;
+
       const updatedTimesheet = await strapi.entityService.update('api::timesheet.timesheet', id, {
-        data,
+        data: updateData,
         populate: {
           employee: {
-            fields: ['id', 'username', 'email', 'firstName', 'lastName']
+            fields: ['id', 'username', 'email', 'firstName', 'lastName', 'workRole']
           }
         }
       });

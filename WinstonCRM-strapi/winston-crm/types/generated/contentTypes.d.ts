@@ -914,7 +914,6 @@ export interface ApiTimesheetTimesheet extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    workRole: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
 
@@ -1429,6 +1428,7 @@ export interface PluginUsersPermissionsUser
       }>;
     userRole: Schema.Attribute.Enumeration<['admin', 'team_member']> &
       Schema.Attribute.DefaultTo<'team_member'>;
+    workRole: Schema.Attribute.String;
   };
 }
 

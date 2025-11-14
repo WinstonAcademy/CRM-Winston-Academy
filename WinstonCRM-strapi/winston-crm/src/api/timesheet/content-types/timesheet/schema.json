@@ -37,10 +37,6 @@
       "enum": ["Office", "Remote", "Hybrid"],
       "default": "Office"
     },
-    "workRole": {
-      "type": "string",
-      "required": true
-    },
     "employee": {
       "type": "relation",
       "relation": "manyToOne",

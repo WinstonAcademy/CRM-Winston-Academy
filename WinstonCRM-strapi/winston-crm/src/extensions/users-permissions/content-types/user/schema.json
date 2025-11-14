@@ -100,6 +100,9 @@
       "type": "boolean",
       "default": true
     },
+    "workRole": {
+      "type": "string"
+    },
     "phone": {
       "type": "string"
     }
