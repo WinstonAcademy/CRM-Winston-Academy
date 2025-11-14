@@ -52,9 +52,7 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: {
-          scope: ['authenticated']
-        }
+        auth: false, // Bypass permission check, but controller will check auth
       },
     },
     {
@@ -64,9 +62,7 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: {
-          scope: ['authenticated']
-        }
+        auth: false, // Bypass permission check, but controller will check auth
       },
     },
   ],
