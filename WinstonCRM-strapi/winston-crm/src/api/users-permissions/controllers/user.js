@@ -43,6 +43,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
         canAccessStudents: userData.canAccessStudents || false,
         canAccessUsers: userData.canAccessUsers || false,
         canAccessDashboard: userData.canAccessDashboard !== false,
+        canAccessTimesheets: userData.canAccessTimesheets !== false,
         isActive: userData.isActive !== false,
         phone: userData.phone || '',
       };
@@ -162,6 +163,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
           canAccessStudents: data.canAccessStudents,
           canAccessUsers: data.canAccessUsers,
           canAccessDashboard: data.canAccessDashboard,
+          canAccessTimesheets: data.canAccessTimesheets,
         },
         populate: ['role'],
       });
@@ -214,6 +216,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
         canAccessStudents: user.canAccessStudents || false,
         canAccessUsers: user.canAccessUsers || false,
         canAccessDashboard: user.canAccessDashboard || false,
+        canAccessTimesheets: user.canAccessTimesheets !== false,
         isActive: user.isActive !== false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
