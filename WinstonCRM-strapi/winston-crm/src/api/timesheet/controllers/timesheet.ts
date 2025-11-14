@@ -83,17 +83,22 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       if (data.startTime && data.endTime) {
         console.log('⏰ Calculating hours - Start:', data.startTime, 'End:', data.endTime);
         
-        // Parse time strings directly (format: HH:MM or HH:MM:SS)
-        const startParts = data.startTime.split(':');
-        const endParts = data.endTime.split(':');
+        // Parse time strings - handle both HH:MM and HH:MM:SS.SSS formats
+        // Remove milliseconds if present (e.g., "09:00:00.000" -> "09:00:00")
+        const startTimeClean = data.startTime.split('.')[0];
+        const endTimeClean = data.endTime.split('.')[0];
+        
+        const startParts = startTimeClean.split(':');
+        const endParts = endTimeClean.split(':');
         
         if (startParts.length < 2 || endParts.length < 2) {
           errors.push('Invalid time format');
         } else {
+          // Parse hours and minutes (ignore seconds if present)
           const startHours = parseInt(startParts[0], 10);
-          const startMinutes = parseInt(startParts[1], 10);
+          const startMinutes = parseInt(startParts[1], 10) || 0;
           const endHours = parseInt(endParts[0], 10);
-          const endMinutes = parseInt(endParts[1], 10);
+          const endMinutes = parseInt(endParts[1], 10) || 0;
           
           if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes)) {
             errors.push('Invalid time values');
@@ -102,7 +107,8 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
             const startTotalMinutes = startHours * 60 + startMinutes;
             const endTotalMinutes = endHours * 60 + endMinutes;
             
-            console.log('⏰ Start total minutes:', startTotalMinutes, 'End total minutes:', endTotalMinutes);
+            console.log('⏰ Start:', `${startHours}:${startMinutes.toString().padStart(2, '0')}`, '=', startTotalMinutes, 'minutes');
+            console.log('⏰ End:', `${endHours}:${endMinutes.toString().padStart(2, '0')}`, '=', endTotalMinutes, 'minutes');
             
             if (endTotalMinutes <= startTotalMinutes) {
               console.log('❌ End time is not after start time');
@@ -111,15 +117,15 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
               // Calculate total hours
               const minutesDiff = endTotalMinutes - startTotalMinutes;
               const hours = minutesDiff / 60;
-              console.log('📐 Minutes difference:', minutesDiff, 'Hours:', hours);
+              console.log('📐 Minutes difference:', minutesDiff, 'minutes =', hours, 'hours');
               
               // 4. Validate maximum hours per day (24 hours)
               if (hours > 24) {
                 console.log('❌ Hours exceed 24:', hours);
                 errors.push('Total hours cannot exceed 24 hours per day');
               } else {
-                // Always calculate and set totalHours
-                calculatedHours = Math.round(hours * 100) / 100; // Round to 2 decimal places
+                // Always calculate and set totalHours (round to 2 decimal places)
+                calculatedHours = Math.round(hours * 100) / 100;
                 console.log('✅ Calculated total hours:', calculatedHours, 'from', data.startTime, 'to', data.endTime);
               }
             }
@@ -225,15 +231,20 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
 
       let calculatedHours = existingTimesheet.totalHours || 0;
       if (data.startTime && data.endTime) {
-        // Parse time strings directly (format: HH:MM or HH:MM:SS)
-        const startParts = data.startTime.split(':');
-        const endParts = data.endTime.split(':');
+        // Parse time strings - handle both HH:MM and HH:MM:SS.SSS formats
+        // Remove milliseconds if present (e.g., "09:00:00.000" -> "09:00:00")
+        const startTimeClean = data.startTime.split('.')[0];
+        const endTimeClean = data.endTime.split('.')[0];
+        
+        const startParts = startTimeClean.split(':');
+        const endParts = endTimeClean.split(':');
         
         if (startParts.length >= 2 && endParts.length >= 2) {
+          // Parse hours and minutes (ignore seconds if present)
           const startHours = parseInt(startParts[0], 10);
-          const startMinutes = parseInt(startParts[1], 10);
+          const startMinutes = parseInt(startParts[1], 10) || 0;
           const endHours = parseInt(endParts[0], 10);
-          const endMinutes = parseInt(endParts[1], 10);
+          const endMinutes = parseInt(endParts[1], 10) || 0;
           
           if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
             // Convert to total minutes for easier calculation
@@ -250,9 +261,9 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
               if (hours > 24) {
                 errors.push('Total hours cannot exceed 24 hours per day');
               } else {
-                // Always calculate and set totalHours
+                // Always calculate and set totalHours (round to 2 decimal places)
                 calculatedHours = Math.round(hours * 100) / 100;
-                console.log('📊 Updated total hours:', calculatedHours);
+                console.log('📊 Updated total hours:', calculatedHours, 'from', minutesDiff, 'minutes');
               }
             }
           }
