@@ -280,11 +280,31 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   }
 }));
 
-// Helper function to parse time string (HH:MM) to Date object for comparison
+// Helper function to parse time string (HH:MM or HH:MM:SS) to Date object for comparison
 function parseTime(timeString) {
-  const [hours, minutes] = timeString.split(':').map(Number);
+  if (!timeString) {
+    console.error('❌ parseTime: Empty time string');
+    return new Date();
+  }
+  
+  // Handle both HH:MM and HH:MM:SS formats
+  const parts = timeString.split(':');
+  if (parts.length < 2) {
+    console.error('❌ parseTime: Invalid time format:', timeString);
+    return new Date();
+  }
+  
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  
+  if (isNaN(hours) || isNaN(minutes)) {
+    console.error('❌ parseTime: Invalid hours or minutes:', timeString);
+    return new Date();
+  }
+  
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
+  console.log('🔧 parseTime: Input:', timeString, '-> Parsed:', hours, 'hours', minutes, 'minutes -> Date:', date.toISOString());
   return date;
 }
 
