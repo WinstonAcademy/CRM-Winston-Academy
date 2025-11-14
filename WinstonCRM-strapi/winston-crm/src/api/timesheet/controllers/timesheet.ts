@@ -62,17 +62,19 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
       if (!data.endTime) errors.push('End time is required');
       if (!data.notes || !data.notes.trim()) errors.push('Notes are required');
 
-      // 2. Validate date is not in future (only admin can set future dates)
+      // 2. Validate date restrictions for non-admins
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
       const isAdmin = userData.userRole === 'admin';
       
       if (!isAdmin && data.date) {
         const entryDate = new Date(data.date);
+        entryDate.setHours(0, 0, 0, 0);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        if (entryDate > today) {
-          errors.push('Cannot submit timesheet for future dates');
+        // Non-admins can only submit for today's date
+        if (entryDate.getTime() !== today.getTime()) {
+          errors.push('You can only submit timesheets for today\'s date. Please contact an admin for previous dates.');
         }
       }
 
