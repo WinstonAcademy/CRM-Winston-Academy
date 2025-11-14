@@ -14,8 +14,7 @@
   "attributes": {
     "date": {
       "type": "date",
-      "required": true,
-      "default": "today"
+      "required": true
     },
     "startTime": {
       "type": "time",

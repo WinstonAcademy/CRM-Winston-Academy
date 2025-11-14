@@ -893,9 +893,7 @@ export interface ApiTimesheetTimesheet extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    date: Schema.Attribute.Date &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'today'>;
+    date: Schema.Attribute.Date & Schema.Attribute.Required;
     employee: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
