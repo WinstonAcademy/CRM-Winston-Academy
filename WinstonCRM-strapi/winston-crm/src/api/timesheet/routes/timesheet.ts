@@ -50,7 +50,7 @@ export default {
       path: '/timesheets/clock-in',
       handler: 'timesheet.clockIn',
       config: {
-        policies: ['plugin::users-permissions.rateLimit', 'api::timesheet.allow-authenticated'],
+        policies: [],
         middlewares: [],
         auth: {
           scope: ['authenticated']
@@ -62,7 +62,7 @@ export default {
       path: '/timesheets/clock-out',
       handler: 'timesheet.clockOut',
       config: {
-        policies: ['plugin::users-permissions.rateLimit', 'api::timesheet.allow-authenticated'],
+        policies: [],
         middlewares: [],
         auth: {
           scope: ['authenticated']

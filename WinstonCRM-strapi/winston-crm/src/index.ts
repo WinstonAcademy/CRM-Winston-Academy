@@ -51,6 +51,67 @@ export default {
       }
 
       console.log(`✅ API permissions configured successfully! Enabled ${enabledCount} permissions.`);
+      
+      // Enable permissions for custom clock-in/clock-out actions
+      console.log('🔧 Enabling permissions for custom timesheet actions...');
+      try {
+        // Find or create permissions for clock-in and clock-out
+        const clockInPermission = await strapi.query('plugin::users-permissions.permission').findOne({
+          where: {
+            role: authenticatedRole.id,
+            action: 'api::timesheet.timesheet.clockIn'
+          }
+        });
+        
+        const clockOutPermission = await strapi.query('plugin::users-permissions.permission').findOne({
+          where: {
+            role: authenticatedRole.id,
+            action: 'api::timesheet.timesheet.clockOut'
+          }
+        });
+        
+        // Create or enable clock-in permission
+        if (clockInPermission) {
+          if (!clockInPermission.enabled) {
+            await strapi.query('plugin::users-permissions.permission').update({
+              where: { id: clockInPermission.id },
+              data: { enabled: true }
+            });
+            console.log('✓ Enabled clock-in permission');
+          }
+        } else {
+          await strapi.query('plugin::users-permissions.permission').create({
+            data: {
+              action: 'api::timesheet.timesheet.clockIn',
+              role: authenticatedRole.id,
+              enabled: true
+            }
+          });
+          console.log('✓ Created clock-in permission');
+        }
+        
+        // Create or enable clock-out permission
+        if (clockOutPermission) {
+          if (!clockOutPermission.enabled) {
+            await strapi.query('plugin::users-permissions.permission').update({
+              where: { id: clockOutPermission.id },
+              data: { enabled: true }
+            });
+            console.log('✓ Enabled clock-out permission');
+          }
+        } else {
+          await strapi.query('plugin::users-permissions.permission').create({
+            data: {
+              action: 'api::timesheet.timesheet.clockOut',
+              role: authenticatedRole.id,
+              enabled: true
+            }
+          });
+          console.log('✓ Created clock-out permission');
+        }
+      } catch (error) {
+        console.error('❌ Error setting up custom permissions:', error);
+      }
     } else {
       console.error('❌ Authenticated role not found!');
     }
