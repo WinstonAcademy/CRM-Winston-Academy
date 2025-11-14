@@ -380,57 +380,14 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   // Clock In - Create timesheet with start time only (for non-admins)
   async clockIn(ctx) {
     try {
-      // Manually authenticate if not already authenticated
-      let user = ctx.state.user;
+      const user = ctx.state.user;
       
       if (!user) {
-        // Try to authenticate from JWT token
-        // Check multiple possible header formats
-        const authHeader = ctx.request.header?.authorization || 
-                          ctx.request.header?.Authorization || 
-                          ctx.headers?.authorization || 
-                          ctx.headers?.Authorization;
-        
-        let token = null;
-        if (authHeader) {
-          // Handle both "Bearer token" and just "token" formats
-          token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        }
-        
-        console.log('🔐 Clock In - Auth header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'No header');
-        console.log('🔐 Clock In - Extracted token:', token ? `${token.substring(0, 30)}...` : 'No token');
-        
-        if (token) {
-          try {
-            const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-            const jwtService = getService('jwt');
-            const decodedToken = await jwtService.verify(token);
-            
-            console.log('🔐 Clock In - JWT decoded:', decodedToken);
-            
-            if (decodedToken && decodedToken.id) {
-              user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
-              if (user) {
-                ctx.state.user = user;
-                console.log('✅ Clock In - User authenticated:', user.email);
-              } else {
-                console.error('❌ Clock In - User not found for ID:', decodedToken.id);
-              }
-            }
-          } catch (error) {
-            console.error('❌ Clock In - JWT verification failed:', error);
-            console.error('❌ Clock In - Error details:', error.message || error);
-          }
-        } else {
-          console.error('❌ Clock In - No token found in headers');
-          console.error('❌ Clock In - Available headers:', Object.keys(ctx.request.header || {}));
-        }
-      }
-      
-      if (!user) {
-        console.error('❌ Clock In - Authentication failed, no user found');
+        console.error('❌ Clock In - No user in ctx.state.user');
         return ctx.unauthorized('You must be logged in');
       }
+      
+      console.log('✅ Clock In - User authenticated:', user.email, '(ID:', user.id, ')');
 
       // Get user's full data
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
@@ -506,57 +463,14 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   // Clock Out - Update timesheet with end time (for non-admins)
   async clockOut(ctx) {
     try {
-      // Manually authenticate if not already authenticated
-      let user = ctx.state.user;
+      const user = ctx.state.user;
       
       if (!user) {
-        // Try to authenticate from JWT token
-        // Check multiple possible header formats
-        const authHeader = ctx.request.header?.authorization || 
-                          ctx.request.header?.Authorization || 
-                          ctx.headers?.authorization || 
-                          ctx.headers?.Authorization;
-        
-        let token = null;
-        if (authHeader) {
-          // Handle both "Bearer token" and just "token" formats
-          token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        }
-        
-        console.log('🔐 Clock Out - Auth header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'No header');
-        console.log('🔐 Clock Out - Extracted token:', token ? `${token.substring(0, 30)}...` : 'No token');
-        
-        if (token) {
-          try {
-            const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-            const jwtService = getService('jwt');
-            const decodedToken = await jwtService.verify(token);
-            
-            console.log('🔐 Clock Out - JWT decoded:', decodedToken);
-            
-            if (decodedToken && decodedToken.id) {
-              user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
-              if (user) {
-                ctx.state.user = user;
-                console.log('✅ Clock Out - User authenticated:', user.email);
-              } else {
-                console.error('❌ Clock Out - User not found for ID:', decodedToken.id);
-              }
-            }
-          } catch (error) {
-            console.error('❌ Clock Out - JWT verification failed:', error);
-            console.error('❌ Clock Out - Error details:', error.message || error);
-          }
-        } else {
-          console.error('❌ Clock Out - No token found in headers');
-          console.error('❌ Clock Out - Available headers:', Object.keys(ctx.request.header || {}));
-        }
-      }
-      
-      if (!user) {
-        console.error('❌ Clock Out - Authentication failed, no user found');
+        console.error('❌ Clock Out - No user in ctx.state.user');
         return ctx.unauthorized('You must be logged in');
       }
+      
+      console.log('✅ Clock Out - User authenticated:', user.email, '(ID:', user.id, ')');
 
       // Get user's full data
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);

@@ -52,7 +52,10 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: false, // Bypass permission check, controller will manually authenticate
+        // Use standard authentication - permissions are enabled in bootstrap
+        auth: {
+          scope: ['authenticated']
+        }
       },
     },
     {
@@ -62,7 +65,10 @@ export default {
       config: {
         policies: [],
         middlewares: [],
-        auth: false, // Bypass permission check, controller will manually authenticate
+        // Use standard authentication - permissions are enabled in bootstrap
+        auth: {
+          scope: ['authenticated']
+        }
       },
     },
   ],
