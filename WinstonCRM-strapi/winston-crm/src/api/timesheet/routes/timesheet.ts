@@ -50,9 +50,8 @@ export default {
       path: '/timesheets/clock-in',
       handler: 'timesheet.clockIn',
       config: {
-        policies: [],
+        policies: ['plugin::users-permissions.rateLimit', 'api::timesheet.allow-authenticated'],
         middlewares: [],
-        // Use standard authentication - permissions are enabled in bootstrap
         auth: {
           scope: ['authenticated']
         }
@@ -63,9 +62,8 @@ export default {
       path: '/timesheets/clock-out',
       handler: 'timesheet.clockOut',
       config: {
-        policies: [],
+        policies: ['plugin::users-permissions.rateLimit', 'api::timesheet.allow-authenticated'],
         middlewares: [],
-        // Use standard authentication - permissions are enabled in bootstrap
         auth: {
           scope: ['authenticated']
         }
