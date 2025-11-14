@@ -380,7 +380,26 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   // Clock In - Create timesheet with start time only (for non-admins)
   async clockIn(ctx) {
     try {
-      const user = ctx.state.user;
+      // Manually authenticate if not already authenticated
+      let user = ctx.state.user;
+      
+      if (!user) {
+        // Try to authenticate from JWT token
+        const token = ctx.request.header.authorization?.replace('Bearer ', '');
+        if (token) {
+          try {
+            const { getService } = require('@strapi/plugin-users-permissions/server/utils');
+            const jwtService = getService('jwt');
+            const decodedToken = await jwtService.verify(token);
+            if (decodedToken) {
+              user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
+              ctx.state.user = user;
+            }
+          } catch (error) {
+            console.error('JWT verification failed:', error);
+          }
+        }
+      }
       
       if (!user) {
         return ctx.unauthorized('You must be logged in');
@@ -460,7 +479,26 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   // Clock Out - Update timesheet with end time (for non-admins)
   async clockOut(ctx) {
     try {
-      const user = ctx.state.user;
+      // Manually authenticate if not already authenticated
+      let user = ctx.state.user;
+      
+      if (!user) {
+        // Try to authenticate from JWT token
+        const token = ctx.request.header.authorization?.replace('Bearer ', '');
+        if (token) {
+          try {
+            const { getService } = require('@strapi/plugin-users-permissions/server/utils');
+            const jwtService = getService('jwt');
+            const decodedToken = await jwtService.verify(token);
+            if (decodedToken) {
+              user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
+              ctx.state.user = user;
+            }
+          } catch (error) {
+            console.error('JWT verification failed:', error);
+          }
+        }
+      }
       
       if (!user) {
         return ctx.unauthorized('You must be logged in');
