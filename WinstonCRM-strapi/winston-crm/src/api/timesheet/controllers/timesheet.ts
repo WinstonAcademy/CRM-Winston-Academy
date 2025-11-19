@@ -599,30 +599,50 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
             const startTimeClean = startTimeStr.split('.')[0];
             const startParts = startTimeClean.split(':');
             
+            console.log('🕐 Clock Out - Start time string:', startTimeStr);
+            console.log('🕐 Clock Out - Start time clean:', startTimeClean);
+            console.log('🕐 Clock Out - Start parts:', startParts);
+            console.log('🕐 Clock Out - Current time (hours:minutes):', hours, ':', minutes);
+            
             if (startParts.length >= 2) {
               const startHours = parseInt(startParts[0], 10);
               const startMinutes = parseInt(startParts[1], 10) || 0;
               const endHours = parseInt(hours, 10);
               const endMinutes = parseInt(minutes, 10) || 0;
               
+              console.log('🕐 Clock Out - Parsed times - Start:', startHours, ':', startMinutes, 'End:', endHours, ':', endMinutes);
+              
               if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
                 const startTotalMinutes = startHours * 60 + startMinutes;
                 const endTotalMinutes = endHours * 60 + endMinutes;
                 
-                if (endTotalMinutes > startTotalMinutes) {
-                  const minutesDiff = endTotalMinutes - startTotalMinutes;
-                  const hours = minutesDiff / 60;
-                  
-                  if (hours <= 24) {
-                    calculatedHours = Math.round(hours * 100) / 100;
-                  } else {
-                    return ctx.badRequest('Total hours cannot exceed 24 hours per day');
-                  }
-                } else {
-                  return ctx.badRequest('End time must be after start time');
+                console.log('🕐 Clock Out - Total minutes - Start:', startTotalMinutes, 'End:', endTotalMinutes);
+                
+                if (endTotalMinutes <= startTotalMinutes) {
+                  console.error('❌ Clock Out - End time is not after start time. Start:', startTotalMinutes, 'End:', endTotalMinutes);
+                  return ctx.badRequest(`End time must be after start time. Start: ${startHours}:${startMinutes.toString().padStart(2, '0')}, End: ${endHours}:${endMinutes.toString().padStart(2, '0')}`);
                 }
+                
+                const minutesDiff = endTotalMinutes - startTotalMinutes;
+                const hoursDiff = minutesDiff / 60;
+                
+                if (hoursDiff > 24) {
+                  return ctx.badRequest('Total hours cannot exceed 24 hours per day');
+                }
+                
+                calculatedHours = Math.round(hoursDiff * 100) / 100;
+                console.log('✅ Clock Out - Calculated hours:', calculatedHours, 'from', minutesDiff, 'minutes');
+              } else {
+                console.error('❌ Clock Out - Invalid time values parsed');
+                return ctx.badRequest('Invalid time format in timesheet');
               }
+            } else {
+              console.error('❌ Clock Out - Invalid start time format:', startTimeStr);
+              return ctx.badRequest('Invalid start time format in timesheet');
             }
+          } else {
+            console.error('❌ Clock Out - No start time found in timesheet');
+            return ctx.badRequest('Timesheet has no start time');
           }
 
           // Get optional data from request body
