@@ -391,7 +391,8 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
           if (!user) {
             // Extract JWT token from Authorization header
             const authHeader = ctx.request.header?.authorization || ctx.request.header?.Authorization;
-            const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
+            const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+            const token = authHeaderStr?.replace(/^Bearer\s+/i, '').trim();
             
             if (!token) {
               console.error('❌ Clock In - No token found');
@@ -511,7 +512,8 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
           if (!user) {
             // Extract JWT token from Authorization header
             const authHeader = ctx.request.header?.authorization || ctx.request.header?.Authorization;
-            const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
+            const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+            const token = authHeaderStr?.replace(/^Bearer\s+/i, '').trim();
             
             if (!token) {
               console.error('❌ Clock Out - No token found');
