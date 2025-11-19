@@ -52,7 +52,6 @@ export default {
           config: {
             policies: [],
             middlewares: [],
-            auth: false, // Bypass permission system, handle auth in controller
           },
         },
         {
@@ -62,7 +61,6 @@ export default {
           config: {
             policies: [],
             middlewares: [],
-            auth: false, // Bypass permission system, handle auth in controller
           },
         },
   ],

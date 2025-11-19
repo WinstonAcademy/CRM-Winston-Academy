@@ -385,7 +385,10 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
   // Clock In - Create timesheet with start time only (for non-admins)
   async clockIn(ctx) {
         try {
-          // Manual authentication since auth: false bypasses Strapi auth
+          console.log('🕐 Clock In - Request received');
+          console.log('🕐 Clock In - ctx.state.user:', ctx.state.user ? 'exists' : 'null');
+          
+          // Get user from ctx.state (set by Strapi's auth middleware if authenticated)
           let user = ctx.state.user;
           
           if (!user) {
