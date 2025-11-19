@@ -396,8 +396,13 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         try {
           // Verify JWT token and get user
           const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-          const jwtService = getService('jwt');
+          const jwtService = getService('jwt', strapi);
+          
+          console.log('🔐 Clock In - Verifying token:', token ? `${token.substring(0, 20)}...` : 'No token');
+          
           const decodedToken = await jwtService.verify(token);
+          
+          console.log('🔐 Clock In - Decoded token:', decodedToken);
           
           if (decodedToken && decodedToken.id) {
             user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
@@ -405,13 +410,23 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
               console.error('❌ Clock In - User not found for ID:', decodedToken.id);
               return ctx.unauthorized('Invalid user');
             }
+            
+            // Check if user is blocked or inactive
+            if (user.blocked || user.isActive === false) {
+              console.error('❌ Clock In - User is blocked or inactive');
+              return ctx.unauthorized('Your account has been deactivated');
+            }
+            
             ctx.state.user = user;
             console.log('✅ Clock In - User authenticated via JWT:', user.email, '(ID:', user.id, ')');
           } else {
+            console.error('❌ Clock In - Invalid decoded token structure');
             return ctx.unauthorized('Invalid token');
           }
         } catch (jwtError) {
           console.error('❌ Clock In - JWT verification failed:', jwtError);
+          console.error('❌ Clock In - Error message:', jwtError.message);
+          console.error('❌ Clock In - Error stack:', jwtError.stack);
           return ctx.unauthorized('Invalid or expired token');
         }
       } else {
@@ -508,8 +523,13 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
         try {
           // Verify JWT token and get user
           const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-          const jwtService = getService('jwt');
+          const jwtService = getService('jwt', strapi);
+          
+          console.log('🔐 Clock Out - Verifying token:', token ? `${token.substring(0, 20)}...` : 'No token');
+          
           const decodedToken = await jwtService.verify(token);
+          
+          console.log('🔐 Clock Out - Decoded token:', decodedToken);
           
           if (decodedToken && decodedToken.id) {
             user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
@@ -517,13 +537,23 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
               console.error('❌ Clock Out - User not found for ID:', decodedToken.id);
               return ctx.unauthorized('Invalid user');
             }
+            
+            // Check if user is blocked or inactive
+            if (user.blocked || user.isActive === false) {
+              console.error('❌ Clock Out - User is blocked or inactive');
+              return ctx.unauthorized('Your account has been deactivated');
+            }
+            
             ctx.state.user = user;
             console.log('✅ Clock Out - User authenticated via JWT:', user.email, '(ID:', user.id, ')');
           } else {
+            console.error('❌ Clock Out - Invalid decoded token structure');
             return ctx.unauthorized('Invalid token');
           }
         } catch (jwtError) {
           console.error('❌ Clock Out - JWT verification failed:', jwtError);
+          console.error('❌ Clock Out - Error message:', jwtError.message);
+          console.error('❌ Clock Out - Error stack:', jwtError.stack);
           return ctx.unauthorized('Invalid or expired token');
         }
       } else {
