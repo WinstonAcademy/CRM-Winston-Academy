@@ -898,7 +898,7 @@ export interface ApiTimesheetTimesheet extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    endTime: Schema.Attribute.Time & Schema.Attribute.Required;
+    endTime: Schema.Attribute.Time;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

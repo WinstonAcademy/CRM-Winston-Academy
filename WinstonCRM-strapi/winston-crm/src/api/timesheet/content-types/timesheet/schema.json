@@ -22,7 +22,7 @@
     },
     "endTime": {
       "type": "time",
-      "required": true
+      "required": false
     },
     "totalHours": {
       "type": "decimal",
