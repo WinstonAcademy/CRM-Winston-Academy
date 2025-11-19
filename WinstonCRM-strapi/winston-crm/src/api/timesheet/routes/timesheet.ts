@@ -50,8 +50,9 @@ export default {
           path: '/timesheets/clock-in',
           handler: 'timesheet.clockIn',
           config: {
-            policies: ['plugin::users-permissions.isAuthenticated'],
+            policies: [],
             middlewares: [],
+            auth: false, // Bypass permission system, handle auth in controller
           },
         },
         {
@@ -59,8 +60,9 @@ export default {
           path: '/timesheets/clock-out',
           handler: 'timesheet.clockOut',
           config: {
-            policies: ['plugin::users-permissions.isAuthenticated'],
+            policies: [],
             middlewares: [],
+            auth: false, // Bypass permission system, handle auth in controller
           },
         },
   ],
