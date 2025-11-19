@@ -377,76 +377,18 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
     }
   },
 
-  // Clock In - Create timesheet with start time only (for non-admins)
-  async clockIn(ctx) {
-    try {
-      // Manually authenticate from JWT token since auth: false bypasses Strapi auth
-      let user = ctx.state.user;
-      
-      if (!user) {
-        // Extract JWT token from Authorization header
-        const authHeader = ctx.request.header?.authorization || ctx.request.header?.Authorization;
-        const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
-        
-        if (!token) {
-          console.error('❌ Clock In - No token found');
-          return ctx.unauthorized('You must be logged in');
-        }
-        
+      // Clock In - Create timesheet with start time only (for non-admins)
+      async clockIn(ctx) {
         try {
-          // Verify JWT token and get user using Strapi's plugin API
-          const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-          const jwtService = getService('jwt');
-          
-          console.log('🔐 Clock In - Verifying token:', token ? `${token.substring(0, 20)}...` : 'No token');
-          console.log('🔐 Clock In - Token length:', token ? token.length : 0);
-          
-          // Verify the JWT token
-          const decodedToken = await jwtService.verify(token);
-          
-          console.log('🔐 Clock In - Decoded token:', decodedToken);
-          
-          if (!decodedToken || !decodedToken.id) {
-            console.error('❌ Clock In - Invalid decoded token structure:', decodedToken);
-            return ctx.unauthorized('Invalid token');
-          }
-          
-          // Get user from database
-          user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
+          // Use Strapi's standard authentication (ctx.state.user is set by auth middleware)
+          const user = ctx.state.user;
           
           if (!user) {
-            console.error('❌ Clock In - User not found for ID:', decodedToken.id);
-            return ctx.unauthorized('Invalid user');
+            console.error('❌ Clock In - No user found in ctx.state.user');
+            return ctx.unauthorized('You must be logged in');
           }
           
-          // Check if user is blocked or inactive
-          if (user.blocked || user.isActive === false) {
-            console.error('❌ Clock In - User is blocked or inactive. Blocked:', user.blocked, 'isActive:', user.isActive);
-            return ctx.unauthorized('Your account has been deactivated');
-          }
-          
-          ctx.state.user = user;
-          console.log('✅ Clock In - User authenticated via JWT:', user.email, '(ID:', user.id, ')');
-        } catch (jwtError) {
-          console.error('❌ Clock In - JWT verification failed:', jwtError);
-          console.error('❌ Clock In - Error name:', jwtError.name);
-          console.error('❌ Clock In - Error message:', jwtError.message);
-          if (jwtError.stack) {
-            console.error('❌ Clock In - Error stack:', jwtError.stack);
-          }
-          
-          // Provide more specific error messages
-          if (jwtError.message && jwtError.message.includes('expired')) {
-            return ctx.unauthorized('Your session has expired. Please log in again.');
-          } else if (jwtError.message && jwtError.message.includes('invalid')) {
-            return ctx.unauthorized('Invalid authentication token. Please log in again.');
-          }
-          
-          return ctx.unauthorized('Invalid or expired token');
-        }
-      } else {
-        console.log('✅ Clock In - User authenticated:', user.email, '(ID:', user.id, ')');
-      }
+          console.log('✅ Clock In - User authenticated:', user.email, '(ID:', user.id, ')');
 
       // Get user's full data
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);
@@ -519,76 +461,18 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
     }
   },
 
-  // Clock Out - Update timesheet with end time (for non-admins)
-  async clockOut(ctx) {
-    try {
-      // Manually authenticate from JWT token since auth: false bypasses Strapi auth
-      let user = ctx.state.user;
-      
-      if (!user) {
-        // Extract JWT token from Authorization header
-        const authHeader = ctx.request.header?.authorization || ctx.request.header?.Authorization;
-        const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
-        
-        if (!token) {
-          console.error('❌ Clock Out - No token found');
-          return ctx.unauthorized('You must be logged in');
-        }
-        
+      // Clock Out - Update timesheet with end time (for non-admins)
+      async clockOut(ctx) {
         try {
-          // Verify JWT token and get user using Strapi's plugin API
-          const { getService } = require('@strapi/plugin-users-permissions/server/utils');
-          const jwtService = getService('jwt');
-          
-          console.log('🔐 Clock Out - Verifying token:', token ? `${token.substring(0, 20)}...` : 'No token');
-          console.log('🔐 Clock Out - Token length:', token ? token.length : 0);
-          
-          // Verify the JWT token
-          const decodedToken = await jwtService.verify(token);
-          
-          console.log('🔐 Clock Out - Decoded token:', decodedToken);
-          
-          if (!decodedToken || !decodedToken.id) {
-            console.error('❌ Clock Out - Invalid decoded token structure:', decodedToken);
-            return ctx.unauthorized('Invalid token');
-          }
-          
-          // Get user from database
-          user = await strapi.entityService.findOne('plugin::users-permissions.user', decodedToken.id);
+          // Use Strapi's standard authentication (ctx.state.user is set by auth middleware)
+          const user = ctx.state.user;
           
           if (!user) {
-            console.error('❌ Clock Out - User not found for ID:', decodedToken.id);
-            return ctx.unauthorized('Invalid user');
+            console.error('❌ Clock Out - No user found in ctx.state.user');
+            return ctx.unauthorized('You must be logged in');
           }
           
-          // Check if user is blocked or inactive
-          if (user.blocked || user.isActive === false) {
-            console.error('❌ Clock Out - User is blocked or inactive. Blocked:', user.blocked, 'isActive:', user.isActive);
-            return ctx.unauthorized('Your account has been deactivated');
-          }
-          
-          ctx.state.user = user;
-          console.log('✅ Clock Out - User authenticated via JWT:', user.email, '(ID:', user.id, ')');
-        } catch (jwtError) {
-          console.error('❌ Clock Out - JWT verification failed:', jwtError);
-          console.error('❌ Clock Out - Error name:', jwtError.name);
-          console.error('❌ Clock Out - Error message:', jwtError.message);
-          if (jwtError.stack) {
-            console.error('❌ Clock Out - Error stack:', jwtError.stack);
-          }
-          
-          // Provide more specific error messages
-          if (jwtError.message && jwtError.message.includes('expired')) {
-            return ctx.unauthorized('Your session has expired. Please log in again.');
-          } else if (jwtError.message && jwtError.message.includes('invalid')) {
-            return ctx.unauthorized('Invalid authentication token. Please log in again.');
-          }
-          
-          return ctx.unauthorized('Invalid or expired token');
-        }
-      } else {
-        console.log('✅ Clock Out - User authenticated:', user.email, '(ID:', user.id, ')');
-      }
+          console.log('✅ Clock Out - User authenticated:', user.email, '(ID:', user.id, ')');
 
       // Get user's full data
       const userData = await strapi.entityService.findOne('plugin::users-permissions.user', user.id);

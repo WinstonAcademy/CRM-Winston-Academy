@@ -45,26 +45,30 @@ export default {
         middlewares: [],
       },
     },
-    {
-      method: 'POST',
-      path: '/timesheets/clock-in',
-      handler: 'timesheet.clockIn',
-      config: {
-        policies: [],
-        middlewares: [],
-        auth: false, // Bypass Strapi's permission system
-      },
-    },
-    {
-      method: 'POST',
-      path: '/timesheets/clock-out',
-      handler: 'timesheet.clockOut',
-      config: {
-        policies: [],
-        middlewares: [],
-        auth: false, // Bypass Strapi's permission system
-      },
-    },
+        {
+          method: 'POST',
+          path: '/timesheets/clock-in',
+          handler: 'timesheet.clockIn',
+          config: {
+            policies: [],
+            middlewares: [],
+            auth: {
+              scope: ['authenticated']
+            },
+          },
+        },
+        {
+          method: 'POST',
+          path: '/timesheets/clock-out',
+          handler: 'timesheet.clockOut',
+          config: {
+            policies: [],
+            middlewares: [],
+            auth: {
+              scope: ['authenticated']
+            },
+          },
+        },
   ],
 };
 
