@@ -468,15 +468,17 @@ export default factories.createCoreController('api::timesheet.timesheet', ({ str
           const notes = requestData.notes || 'Clocked in';
 
           // Create timesheet with start time only
-          const timesheetData = {
+          // Don't include endTime and totalHours if they're null (Strapi validation issue)
+          const timesheetData: any = {
             date: today,
             startTime: currentTime,
-            endTime: null,
-            totalHours: null,
             notes: notes,
             location: location,
             employee: user.id
           };
+          
+          // Only include endTime and totalHours if they have values
+          // For clock-in, these will be set later on clock-out
 
           console.log('🕐 Clock In - Creating timesheet:', timesheetData);
 
