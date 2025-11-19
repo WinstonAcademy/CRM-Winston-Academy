@@ -50,11 +50,8 @@ export default {
           path: '/timesheets/clock-in',
           handler: 'timesheet.clockIn',
           config: {
-            policies: [],
+            policies: ['plugin::users-permissions.isAuthenticated'],
             middlewares: [],
-            auth: {
-              scope: ['authenticated']
-            },
           },
         },
         {
@@ -62,11 +59,8 @@ export default {
           path: '/timesheets/clock-out',
           handler: 'timesheet.clockOut',
           config: {
-            policies: [],
+            policies: ['plugin::users-permissions.isAuthenticated'],
             middlewares: [],
-            auth: {
-              scope: ['authenticated']
-            },
           },
         },
   ],
