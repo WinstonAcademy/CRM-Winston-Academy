@@ -95,8 +95,8 @@ Winston Academy CRM Team`,
         // For other providers, adjust settings accordingly
       },
       settings: {
-        defaultFrom: env('EMAIL_FROM', 'noreply@winstonacademy.co.uk'),
-        defaultReplyTo: env('EMAIL_REPLY_TO', 'noreply@winstonacademy.co.uk'),
+        defaultFrom: env('EMAIL_FROM', 'info@winstonacademy.co.uk'),
+        defaultReplyTo: env('EMAIL_REPLY_TO', 'info@winstonacademy.co.uk'),
       },
     },
   },
