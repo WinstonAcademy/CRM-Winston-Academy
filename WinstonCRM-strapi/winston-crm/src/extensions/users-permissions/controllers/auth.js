@@ -204,6 +204,104 @@ module.exports = ({ strapi }) => ({
       );
     }
   },
+
+  async forgotPassword(ctx) {
+    const { email } = ctx.request.body;
+
+    if (!email) {
+      return ctx.badRequest('Missing email');
+    }
+
+    // Get the frontend URL from environment or config
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetPasswordUrl = `${frontendUrl}/reset-password`;
+
+    try {
+      // Find user by email
+      const user = await strapi.query('plugin::users-permissions.user').findOne({
+        where: { email: email.toLowerCase() },
+      });
+
+      if (!user) {
+        // Don't reveal if user exists (security best practice)
+        return ctx.send({ ok: true });
+      }
+
+      // Generate reset token using Strapi's service
+      const resetPasswordToken = strapi.plugins['users-permissions'].services.user.generateResetPasswordToken(user);
+
+      // Update user with reset token
+      await strapi.query('plugin::users-permissions.user').update({
+        where: { id: user.id },
+        data: { resetPasswordToken },
+      });
+
+      // Send email with custom URL
+      await strapi.plugins['users-permissions'].services.email.sendTemplatedEmail(
+        {
+          to: user.email,
+        },
+        {
+          subject: 'Reset your password for Winston Academy CRM',
+          text: `Hello,
+
+You requested a password reset for your Winston Academy CRM account.
+
+Please click on the following link to reset your password:
+${resetPasswordUrl}?code=${resetPasswordToken}
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+Winston Academy CRM Team`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>Winston Academy CRM</h1>
+                  <p>Password Reset Request</p>
+                </div>
+                <div class="content">
+                  <p>Hello,</p>
+                  <p>You requested a password reset for your Winston Academy CRM account.</p>
+                  <p>Please click on the button below to reset your password:</p>
+                  <p style="text-align: center;">
+                    <a href="${resetPasswordUrl}?code=${resetPasswordToken}" class="button">Reset Password</a>
+                  </p>
+                  <p>Or copy and paste this link into your browser:</p>
+                  <p style="word-break: break-all; color: #667eea;">${resetPasswordUrl}?code=${resetPasswordToken}</p>
+                  <p>If you didn't request this password reset, please ignore this email.</p>
+                  <p>This link will expire in 1 hour.</p>
+                </div>
+                <div class="footer">
+                  <p>Best regards,<br>Winston Academy CRM Team</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `,
+        }
+      );
+
+      return ctx.send({ ok: true });
+    } catch (error) {
+      console.error('Error in forgot password:', error);
+      return ctx.badRequest('An error occurred while processing your request');
+    }
+  },
 });
 
 const validateCallbackBody = async (data) => {
