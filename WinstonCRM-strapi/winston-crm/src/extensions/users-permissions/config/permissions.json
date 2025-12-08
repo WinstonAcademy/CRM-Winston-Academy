@@ -106,6 +106,28 @@
         "policy": ""
       }
     },
+    "api::agency.agency": {
+      "find": {
+        "enabled": true,
+        "policy": ""
+      },
+      "findOne": {
+        "enabled": true,
+        "policy": ""
+      },
+      "create": {
+        "enabled": true,
+        "policy": ""
+      },
+      "update": {
+        "enabled": true,
+        "policy": ""
+      },
+      "delete": {
+        "enabled": true,
+        "policy": ""
+      }
+    },
     "api::user.user": {
       "find": {
         "enabled": true,
