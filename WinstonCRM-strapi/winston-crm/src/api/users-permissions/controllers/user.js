@@ -196,36 +196,4 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
       throw error;
     }
   },
-
-  // Public method to get all users for frontend sync
-  async getPublicUsers(ctx) {
-    try {
-      const users = await strapi.entityService.findMany('plugin::users-permissions.user', {
-        populate: ['role'],
-      });
-
-      // Transform the data to match frontend expectations
-      const transformedUsers = users.map(user => ({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        userRole: user.role?.name || 'team_member',
-        canAccessLeads: user.canAccessLeads || false,
-        canAccessStudents: user.canAccessStudents || false,
-        canAccessUsers: user.canAccessUsers || false,
-        canAccessDashboard: user.canAccessDashboard || false,
-        canAccessTimesheets: user.canAccessTimesheets !== false,
-        isActive: user.isActive !== false,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      }));
-
-      return { data: transformedUsers };
-    } catch (error) {
-      strapi.log.error('Error getting public users:', error);
-      throw error;
-    }
-  },
 }));

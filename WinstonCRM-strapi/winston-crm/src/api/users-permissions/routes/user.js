@@ -20,15 +20,6 @@ const customRoutes = {
         policies: []
       }
     },
-    // Public users endpoint for frontend sync
-    {
-      method: 'GET',
-      path: '/users/public',
-      handler: 'user.getPublicUsers',
-      config: {
-        auth: false // Make this endpoint public
-      }
-    },
     // Custom permission update route
     {
       method: 'PUT',
