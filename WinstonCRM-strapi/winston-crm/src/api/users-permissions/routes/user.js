@@ -41,6 +41,17 @@ const customRoutes = {
           scope: ['authenticated']
         }
       }
+    },
+    // Change password route for authenticated user
+    {
+      method: 'POST',
+      path: '/users/change-password',
+      handler: 'user.changePassword',
+      config: {
+        auth: {
+          scope: ['authenticated']
+        }
+      }
     }
   ]
 };

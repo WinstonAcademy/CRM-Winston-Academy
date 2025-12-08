@@ -196,4 +196,39 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
       throw error;
     }
   },
+
+  // Custom method to change password for authenticated user
+  async changePassword(ctx) {
+    try {
+      const user = ctx.state.user;
+
+      if (!user) {
+        return ctx.unauthorized('You must be authenticated to change your password');
+      }
+
+      const { password, passwordConfirmation } = ctx.request.body;
+
+      if (!password || !passwordConfirmation) {
+        return ctx.badRequest('Password and password confirmation are required');
+      }
+
+      if (password !== passwordConfirmation) {
+        return ctx.badRequest('Passwords do not match');
+      }
+
+      if (password.length < 6) {
+        return ctx.badRequest('Password must be at least 6 characters long');
+      }
+
+      // Update password using Strapi's user service
+      await strapi.plugin('users-permissions').service('user').edit(user.id, {
+        password,
+      });
+
+      return ctx.send({ message: 'Password changed successfully' });
+    } catch (error) {
+      strapi.log.error('Error changing password:', error);
+      return ctx.badRequest('Failed to change password');
+    }
+  },
 }));
