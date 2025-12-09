@@ -299,7 +299,13 @@ Winston Academy CRM Team`,
       return ctx.send({ ok: true });
     } catch (error) {
       console.error('Error in forgot password:', error);
-      return ctx.badRequest('An error occurred while processing your request');
+      // Log detailed error for debugging
+      if (error.message) {
+        console.error('Error message:', error.message);
+      }
+      // Return success even on error to prevent email enumeration
+      // But log the error for admin debugging
+      return ctx.send({ ok: true });
     }
   },
 });
