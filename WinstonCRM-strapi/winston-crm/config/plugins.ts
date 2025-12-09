@@ -82,17 +82,17 @@ Winston Academy CRM Team`,
   },
   email: {
     config: {
-      provider: env('EMAIL_PROVIDER', 'sendmail'), // Options: sendmail, smtp, or other providers
+      provider: 'nodemailer',
       providerOptions: {
-        host: env('SMTP_HOST', 'localhost'),
-        port: env.int('SMTP_PORT', 587),
-        secure: env.bool('SMTP_SECURE', false), // true for 465, false for other ports
+        host: env('SMTP_HOST', 'mail.name.com'),
+        port: env.int('SMTP_PORT', 465),
+        secure: env.bool('SMTP_SECURE', true), // true for 465, false for other ports
         auth: {
-          user: env('SMTP_USERNAME', ''),
+          user: env('SMTP_USERNAME', 'info@winstonacademy.co.uk'),
           pass: env('SMTP_PASSWORD', ''),
         },
-        // For Gmail, you may need to use an App Password
-        // For other providers, adjust settings accordingly
+        // For name.com email
+        // Port 465 uses SSL, Port 587 uses TLS
       },
       settings: {
         defaultFrom: env('EMAIL_FROM', 'info@winstonacademy.co.uk'),
