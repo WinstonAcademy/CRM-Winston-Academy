@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Old Authentication Data</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .status {
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .status.warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 10px 5px;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn:active {
+      transform: translateY(0);
+    }
+    .btn.secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      max-height: 300px;
+    }
+    .button-group {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Clear Old Authentication Data</h1>
+    <p>This tool will help you clear old authentication data from localStorage and prepare for the new login system.</p>
+    
+    <div id="status"></div>
+    
+    <div class="button-group">
+      <button class="btn" onclick="checkCurrentAuth()">Check Current Auth Data</button>
+      <button class="btn secondary" onclick="clearAllAuth()">Clear All Auth Data</button>
+      <button class="btn" onclick="window.location.href='/'">Go to Login Page</button>
+    </div>
+    
+    <div id="details"></div>
+  </div>
+
+  <script>
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = `status ${type}`;
+      statusDiv.innerHTML = message;
+    }
+
+    function checkCurrentAuth() {
+      const realBackendUser = localStorage.getItem('real_backend_user');
+      const realBackendToken = localStorage.getItem('real_backend_token');
+      
+      const detailsDiv = document.getElementById('details');
+      let html = '<h2>Current Authentication Data</h2>';
+      
+      if (realBackendUser || realBackendToken) {
+        html += '<h3>Real Backend Auth:</h3>';
+        
+        if (realBackendUser) {
+          try {
+            const user = JSON.parse(realBackendUser);
+            html += '<pre>' + JSON.stringify(user, null, 2) + '</pre>';
+            
+            // Check for issues
+            const issues = [];
+            if (!user.role && !user.userRole) {
+              issues.push('❌ Missing both role and userRole fields');
+            }
+            if (user.canAccessLeads === null || user.canAccessLeads === undefined) {
+              issues.push('❌ Missing canAccessLeads permission');
+            }
+            if (user.canAccessStudents === null || user.canAccessStudents === undefined) {
+              issues.push('❌ Missing canAccessStudents permission');
+            }
+            if (user.canAccessUsers === null || user.canAccessUsers === undefined) {
+              issues.push('❌ Missing canAccessUsers permission');
+            }
+            if (user.canAccessDashboard === null || user.canAccessDashboard === undefined) {
+              issues.push('❌ Missing canAccessDashboard permission');
+            }
+            
+            if (issues.length > 0) {
+              showStatus(
+                '⚠️ Found issues with stored authentication data:<br>' + 
+                issues.join('<br>') + 
+                '<br><br>👉 Click "Clear All Auth Data" and login again!',
+                'warning'
+              );
+            } else {
+              showStatus('✅ Authentication data looks good!', 'success');
+            }
+          } catch (error) {
+            html += '<p style="color: red;">Error parsing user data: ' + error.message + '</p>';
+            showStatus('❌ Corrupted authentication data found. Please clear it!', 'warning');
+          }
+        }
+        
+        if (realBackendToken) {
+          html += '<h3>Token:</h3>';
+          html += '<pre>' + realBackendToken.substring(0, 50) + '...</pre>';
+        }
+      } else {
+        html += '<p>No authentication data found.</p>';
+        showStatus('ℹ️ No authentication data in localStorage', 'info');
+      }
+      
+      detailsDiv.innerHTML = html;
+    }
+
+    function clearAllAuth() {
+      // Clear all possible auth keys
+      const keysToRemove = [
+        'real_backend_user',
+        'real_backend_token',
+        'database_user',
+        'database_token',
+        'simple_auth_user',
+        'simple_auth_token',
+        'hybrid_user',
+        'hybrid_token'
+      ];
+      
+      let removedCount = 0;
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          removedCount++;
+        }
+      });
+      
+      if (removedCount > 0) {
+        showStatus(
+          `✅ Successfully cleared ${removedCount} authentication item(s) from localStorage!<br>` +
+          '👉 You can now go to the login page and login again with:<br>' +
+          '<strong>Email:</strong> adminuser@winstonacademy.co.uk<br>' +
+          '<strong>Password:</strong> Admin123!',
+          'success'
+        );
+      } else {
+        showStatus('ℹ️ No authentication data to clear', 'info');
+      }
+      
+      // Clear the details
+      document.getElementById('details').innerHTML = '';
+    }
+
+    // Auto-check on page load
+    window.onload = function() {
+      checkCurrentAuth();
+    };
+  </script>
+</body>
+</html>
+
