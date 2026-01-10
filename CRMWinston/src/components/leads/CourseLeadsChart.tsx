@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { LeadsService, Lead } from "@/services/leadsService";
 
 interface CourseData {
@@ -259,110 +258,6 @@ export const CourseLeadsChart = () => {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Chart Section - Professional Design */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Status Breakdown</h4>
-              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            </div>
-            
-            <div className="h-96 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={courseData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-                  <defs>
-                    <linearGradient id="colorNewLeads" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#059669" stopOpacity={0.9}/>
-                    </linearGradient>
-                    <linearGradient id="colorContacted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.9}/>
-                    </linearGradient>
-                    <linearGradient id="colorPotential" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#d97706" stopOpacity={0.9}/>
-                    </linearGradient>
-                    <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.9}/>
-                    </linearGradient>
-                    <linearGradient id="colorNotInterested" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0.9}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} opacity={0.3} />
-                  <XAxis 
-                    dataKey="course" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }}
-                    width={50}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      padding: '12px'
-                    }}
-                    labelStyle={{ fontWeight: '600', color: '#374151', marginBottom: '8px', fontSize: '13px' }}
-                    itemStyle={{ fontWeight: 500, fontSize: '12px' }}
-                  />
-                  <Legend 
-                    verticalAlign="top" 
-                    height={40}
-                    wrapperStyle={{
-                      paddingBottom: '15px'
-                    }}
-                    iconType="circle"
-                    iconSize={8}
-                  />
-                  
-                  <Bar 
-                    dataKey="newLeads" 
-                    name="New Leads"
-                    fill="url(#colorNewLeads)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="contacted" 
-                    name="Contacted"
-                    fill="url(#colorContacted)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="potential" 
-                    name="Potential"
-                    fill="url(#colorPotential)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="students" 
-                    name="Students"
-                    fill="url(#colorStudents)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="notInterested" 
-                    name="Not Interested"
-                    fill="url(#colorNotInterested)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
             </div>
           </div>
         </div>

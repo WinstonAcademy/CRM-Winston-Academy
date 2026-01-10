@@ -82,3 +82,7 @@ EMAIL_REPLY_TO=info@winstonacademy.co.uk
 - Environment variables are read at build time for Next.js (NEXT_PUBLIC_*)
 - Backend CORS is configured to allow the production domain
 
+
+
+
+

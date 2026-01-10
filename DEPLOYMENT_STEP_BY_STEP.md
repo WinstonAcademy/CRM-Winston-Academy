@@ -337,3 +337,7 @@ tail -f /var/www/crm/logs/backend-error.log
 tail -f /var/www/crm/logs/frontend-error.log
 ```
 
+
+
+
+

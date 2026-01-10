@@ -89,3 +89,6 @@ echo "   cd /var/www/crm/frontend && npm run build"
 echo ""
 echo "3. Start with PM2 (see ecosystem.config.js setup)"
 
+
+
+

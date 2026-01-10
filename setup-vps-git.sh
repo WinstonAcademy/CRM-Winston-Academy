@@ -63,3 +63,7 @@ echo "3. Install dependencies: cd $VPS_FRONTEND && npm install"
 echo "4. Build applications"
 echo "5. Set up PM2 (see GIT_DEPLOYMENT_GUIDE.md)"
 
+
+
+
+

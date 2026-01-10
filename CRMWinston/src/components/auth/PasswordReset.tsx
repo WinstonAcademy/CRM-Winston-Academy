@@ -115,7 +115,7 @@ const PasswordReset: React.FC = () => {
             {/* Current Password Field */}
             <div>
               <Label htmlFor="currentPassword" className="text-gray-700 dark:text-gray-300 font-medium">
-                Current Password (Default: DefaultPass123!)
+                Current Password
               </Label>
               <Input
                 id="currentPassword"

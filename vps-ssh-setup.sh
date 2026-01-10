@@ -109,3 +109,6 @@ echo "2. Build applications:"
 echo "   cd /var/www/crm/backend && npm run build"
 echo "   cd /var/www/crm/frontend && npm run build"
 
+
+
+

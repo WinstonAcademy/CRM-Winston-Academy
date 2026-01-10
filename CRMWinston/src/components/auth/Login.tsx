@@ -177,23 +177,6 @@ const Login: React.FC = () => {
             </button>
           </form>
         </div>
-
-        {/* Demo Credentials */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-            Available Login Credentials:
-          </h3>
-          <div className="text-xs text-blue-600 dark:text-blue-300 space-y-1">
-            <p><strong>Admin:</strong> john.doe@winstonacademy.co.uk / Admin123!</p>
-            <p><strong>Team Members:</strong></p>
-            <p>• team@winstonacademy.co.uk / Team123!</p>
-            <p>• sarah.johnson@winstonacademy.co.uk / Team123!</p>
-            <p>• mike.chen@winstonacademy.co.uk / DefaultPass123!</p>
-            <p>• lisa.garcia@winstonacademy.co.uk / DefaultPass123!</p>
-            <p>• david.smith@winstonacademy.co.uk / DefaultPass123!</p>
-            <p className="text-orange-600 dark:text-orange-400 font-medium">⚠️ First-time users will be prompted to change password</p>
-          </div>
-        </div>
       </div>
     </div>
   );
