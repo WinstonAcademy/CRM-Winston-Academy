@@ -30,11 +30,18 @@
     },
     "notes": {
       "type": "text",
-      "required": true
+      "required": false
+    },
+    "noteToAdmin": {
+      "type": "text",
+      "required": false
     },
     "location": {
       "type": "enumeration",
-      "enum": ["Office", "Remote"],
+      "enum": [
+        "Office",
+        "Work from Home"
+      ],
       "default": "Office"
     },
     "employee": {
@@ -44,4 +51,3 @@
     }
   }
 }
-

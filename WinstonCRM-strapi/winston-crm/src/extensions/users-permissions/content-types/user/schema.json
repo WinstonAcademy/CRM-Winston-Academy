@@ -73,7 +73,10 @@
     },
     "userRole": {
       "type": "enumeration",
-      "enum": ["admin", "team_member"],
+      "enum": [
+        "admin",
+        "team_member"
+      ],
       "default": "team_member"
     },
     "canAccessLeads": {
@@ -100,6 +103,10 @@
       "type": "boolean",
       "default": true
     },
+    "canAccessAgencies": {
+      "type": "boolean",
+      "default": false
+    },
     "workRole": {
       "type": "string"
     },
@@ -108,5 +115,3 @@
     }
   }
 }
-
-

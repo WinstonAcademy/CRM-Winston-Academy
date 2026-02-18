@@ -31,12 +31,12 @@ export default function AdminLayout({
         <Backdrop />
         {/* Main Content Area */}
         <div
-          className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
+          className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin} min-w-0 overflow-x-hidden`}
         >
           {/* Header - Hidden when any form or modal is open */}
           {!isEditFormOpen && !isAddLeadFormOpen && !isDocumentModalOpen && <AppHeader />}
           {/* Page Content */}
-          <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
+          <div className="p-4 mx-auto max-w-full w-full min-w-0 md:p-6">{children}</div>
         </div>
       </div>
     </ProtectedRoute>

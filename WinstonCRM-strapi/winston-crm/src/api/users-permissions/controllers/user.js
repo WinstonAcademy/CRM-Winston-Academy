@@ -44,6 +44,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
         canAccessUsers: userData.canAccessUsers || false,
         canAccessDashboard: userData.canAccessDashboard !== false,
         canAccessTimesheets: userData.canAccessTimesheets !== false,
+        canAccessAgencies: userData.canAccessAgencies || false,
         isActive: userData.isActive !== false,
         phone: userData.phone || '',
       };
@@ -57,12 +58,12 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
   async find(ctx) {
     try {
       const { query } = ctx;
-      
+
       // Add populate for role relation
       if (!query.populate) {
         query.populate = ['role'];
       }
-      
+
       const users = await strapi.entityService.findMany('plugin::users-permissions.user', {
         ...query,
         populate: query.populate,
@@ -80,12 +81,12 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
     try {
       const { id } = ctx.params;
       const { query } = ctx;
-      
+
       // Add populate for role relation
       if (!query.populate) {
         query.populate = ['role'];
       }
-      
+
       const user = await strapi.entityService.findOne('plugin::users-permissions.user', id, {
         ...query,
         populate: query.populate,
@@ -102,7 +103,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
   async create(ctx) {
     try {
       const { data } = ctx.request.body;
-      
+
       const user = await strapi.entityService.create('plugin::users-permissions.user', {
         data: {
           ...data,
@@ -124,7 +125,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
     try {
       const { id } = ctx.params;
       const { data } = ctx.request.body;
-      
+
       const user = await strapi.entityService.update('plugin::users-permissions.user', id, {
         data,
         populate: ['role'],
@@ -141,9 +142,9 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
   async delete(ctx) {
     try {
       const { id } = ctx.params;
-      
+
       const user = await strapi.entityService.delete('plugin::users-permissions.user', id);
-      
+
       return { data: user };
     } catch (error) {
       strapi.log.error('Error in custom user delete:', error);
@@ -156,7 +157,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
     try {
       const { id } = ctx.params;
       const { data } = ctx.request.body;
-      
+
       const user = await strapi.entityService.update('plugin::users-permissions.user', id, {
         data: {
           canAccessLeads: data.canAccessLeads,
@@ -164,6 +165,7 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
           canAccessUsers: data.canAccessUsers,
           canAccessDashboard: data.canAccessDashboard,
           canAccessTimesheets: data.canAccessTimesheets,
+          canAccessAgencies: data.canAccessAgencies,
         },
         populate: ['role'],
       });
@@ -179,10 +181,10 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
   async toggleStatus(ctx) {
     try {
       const { id } = ctx.params;
-      
+
       // Get current user
       const currentUser = await strapi.entityService.findOne('plugin::users-permissions.user', id);
-      
+
       const user = await strapi.entityService.update('plugin::users-permissions.user', id, {
         data: {
           isActive: !currentUser.isActive,

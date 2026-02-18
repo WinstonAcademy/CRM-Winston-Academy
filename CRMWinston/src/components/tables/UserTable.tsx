@@ -57,7 +57,7 @@ export default function UserTable() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await simpleUserService.getUsers();
       setUsers(response);
       setLastSyncTime(new Date());
@@ -79,6 +79,7 @@ export default function UserTable() {
     canAccessLeads: boolean;
     canAccessStudents: boolean;
     canAccessUsers: boolean;
+    canAccessAgencies: boolean;
     canAccessDashboard: boolean;
   }) => {
     try {
@@ -100,6 +101,7 @@ export default function UserTable() {
     canAccessLeads?: boolean;
     canAccessStudents?: boolean;
     canAccessUsers?: boolean;
+    canAccessAgencies?: boolean;
     canAccessDashboard?: boolean;
     isActive?: boolean;
   }) => {
@@ -113,18 +115,19 @@ export default function UserTable() {
         lastName: userData.lastName,
         role: userData.role
       };
-      
+
       const permissionData = {
         canAccessLeads: userData.canAccessLeads,
         canAccessStudents: userData.canAccessStudents,
         canAccessUsers: userData.canAccessUsers,
+        canAccessAgencies: userData.canAccessAgencies,
         canAccessDashboard: userData.canAccessDashboard,
         isActive: userData.isActive
       };
-      
+
       console.log('🔄 Profile data:', profileData);
       console.log('🔄 Permission data:', permissionData);
-      
+
       // Update profile if there are profile changes
       const hasProfileChanges = Object.values(profileData).some(value => value !== undefined);
       console.log('🔄 Has profile changes:', hasProfileChanges);
@@ -133,7 +136,7 @@ export default function UserTable() {
         await simpleUserService.updateUserProfile(id, profileData);
         console.log('✅ updateUserProfile completed');
       }
-      
+
       // Update permissions if there are permission changes
       const hasPermissionChanges = Object.values(permissionData).some(value => value !== undefined);
       console.log('🔄 Has permission changes:', hasPermissionChanges);
@@ -142,7 +145,7 @@ export default function UserTable() {
         await simpleUserService.updateUserPermissions(id, permissionData);
         console.log('✅ updateUserPermissions completed');
       }
-      
+
       console.log('🔄 Fetching users...');
       await fetchUsers();
       setEditingUser(null);
@@ -155,7 +158,7 @@ export default function UserTable() {
 
   const handleDeleteUser = async (id: number) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     try {
       await simpleUserService.updateUserPermissions(id, { isActive: false });
       await fetchUsers();
@@ -169,23 +172,24 @@ export default function UserTable() {
     try {
       const user = users.find(u => u.id === userId);
       if (!user) return;
-      
+
       const updatedPermissions = {
         canAccessLeads: user.canAccessLeads,
         canAccessStudents: user.canAccessStudents,
         canAccessUsers: user.canAccessUsers,
+        canAccessAgencies: user.canAccessAgencies,
         canAccessDashboard: user.canAccessDashboard,
         [permission]: value
       };
-      
+
       await simpleUserService.updateUserPermissions(userId, updatedPermissions);
       await fetchUsers();
-      
+
       // If we updated the current user's permissions, refresh the auth context
       if (currentUser && userId === currentUser.id) {
         await refreshUser();
       }
-      
+
       // Show success message
       const permissionName = permission.replace('canAccess', '').toLowerCase();
       console.log(`Permission "${permissionName}" has been ${value ? 'enabled' : 'disabled'} for ${user.username}`);
@@ -198,20 +202,20 @@ export default function UserTable() {
   const handleStatusToggle = async (userId: number, isActive: boolean) => {
     const user = users.find(u => u.id === userId);
     const action = isActive ? 'activate' : 'deactivate';
-    
+
     if (!confirm(`Are you sure you want to ${action} ${user?.username}?`)) {
       return;
     }
-    
+
     try {
       await simpleUserService.updateUserPermissions(userId, { isActive });
       await fetchUsers();
-      
+
       // If we updated the current user's status, refresh the auth context
       if (currentUser && userId === currentUser.id) {
         await refreshUser();
       }
-      
+
       // Show success message
       console.log(`User ${user?.username} has been ${action}d successfully`);
     } catch (error: unknown) {
@@ -222,14 +226,14 @@ export default function UserTable() {
 
   // Filter users based on search term and filters
   const filteredUsers = users.filter(user => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.firstName && user.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (user.lastName && user.lastName.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesRole = roleFilter === '' || user.role === roleFilter;
-    const matchesStatus = statusFilter === '' || 
+    const matchesStatus = statusFilter === '' ||
       (statusFilter === 'active' && user.isActive) ||
       (statusFilter === 'inactive' && !user.isActive);
 
@@ -264,7 +268,7 @@ export default function UserTable() {
             </p>
           )}
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={fetchUsers}
@@ -298,7 +302,7 @@ export default function UserTable() {
             className="mt-1"
           />
         </div>
-        
+
         <div>
           <Label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Role
@@ -315,7 +319,7 @@ export default function UserTable() {
             placeholder="All Roles"
           />
         </div>
-        
+
         <div>
           <Label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Status
@@ -359,6 +363,9 @@ export default function UserTable() {
                   Users Access
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Agencies Access
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Dashboard Access
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -369,7 +376,7 @@ export default function UserTable() {
             <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-gray-900">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center">
+                  <td colSpan={9} className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                       <span className="ml-2 text-gray-600 dark:text-gray-400">Loading users...</span>
@@ -378,13 +385,13 @@ export default function UserTable() {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-red-600 dark:text-red-400">
+                  <td colSpan={9} className="px-6 py-4 text-center text-red-600 dark:text-red-400">
                     {error}
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                     No users found
                   </td>
                 </tr>
@@ -472,6 +479,18 @@ export default function UserTable() {
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
+                          checked={user.canAccessAgencies}
+                          onChange={(e) => handlePermissionToggle(user.id, 'canAccessAgencies', e.target.checked)}
+                          className="sr-only peer"
+                          disabled={!canManageRoles()}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500 peer-disabled:opacity-50"></div>
+                      </label>
+                    </td>
+                    <td className="px-6 py-4">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
                           checked={user.canAccessDashboard}
                           onChange={(e) => handlePermissionToggle(user.id, 'canAccessDashboard', e.target.checked)}
                           className="sr-only peer"
@@ -506,25 +525,29 @@ export default function UserTable() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div >
 
       {/* Add User Form Modal */}
-      {showAddUserForm && (
-        <AddUserForm
-          onSave={handleCreateUser}
-          onCancel={() => setShowAddUserForm(false)}
-        />
-      )}
+      {
+        showAddUserForm && (
+          <AddUserForm
+            onSave={handleCreateUser}
+            onCancel={() => setShowAddUserForm(false)}
+          />
+        )
+      }
 
       {/* Edit User Form Modal */}
-      {editingUser && (
-        <EditUserForm
-          user={editingUser}
-          onSave={(userData) => handleUpdateUser(editingUser.id, userData)}
-          onCancel={() => setEditingUser(null)}
-        />
-      )}
-    </div>
+      {
+        editingUser && (
+          <EditUserForm
+            user={editingUser}
+            onSave={(userData) => handleUpdateUser(editingUser.id, userData)}
+            onCancel={() => setEditingUser(null)}
+          />
+        )
+      }
+    </div >
   );
 }
 
@@ -539,6 +562,7 @@ const AddUserForm: React.FC<{
     canAccessLeads: boolean;
     canAccessStudents: boolean;
     canAccessUsers: boolean;
+    canAccessAgencies: boolean;
     canAccessDashboard: boolean;
   }) => void;
   onCancel: () => void;
@@ -552,7 +576,8 @@ const AddUserForm: React.FC<{
     canAccessLeads: false,
     canAccessStudents: false,
     canAccessUsers: false,
-    canAccessDashboard: false,
+    canAccessAgencies: false,
+    canAccessDashboard: true,
     isActive: true
   });
 
@@ -585,7 +610,7 @@ const AddUserForm: React.FC<{
               />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name</Label>
@@ -603,9 +628,82 @@ const AddUserForm: React.FC<{
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
               />
             </div>
+            {/* Agencies Access Checkbox */}
           </div>
-          
-          
+
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white">Permissions</h4>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessLeads"
+                  checked={formData.canAccessLeads}
+                  onChange={(e) => setFormData({ ...formData, canAccessLeads: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessLeads">Can Access Leads</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessStudents"
+                  checked={formData.canAccessStudents}
+                  onChange={(e) => setFormData({ ...formData, canAccessStudents: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessStudents">Can Access Students</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessAgencies"
+                  checked={formData.canAccessAgencies}
+                  onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessUsers"
+                  checked={formData.canAccessUsers}
+                  onChange={(e) => setFormData({ ...formData, canAccessUsers: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessUsers">Can Access Users</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessAgencies"
+                  checked={formData.canAccessAgencies}
+                  onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="canAccessDashboard"
+                  checked={formData.canAccessDashboard}
+                  onChange={(e) => setFormData({ ...formData, canAccessDashboard: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="canAccessDashboard">Can Access Dashboard</Label>
+              </div>
+            </div>
+          </div>
+
+
           <div>
             <Label htmlFor="role">Role *</Label>
             <Select
@@ -617,7 +715,7 @@ const AddUserForm: React.FC<{
               ]}
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             <input
               type="checkbox"
@@ -628,7 +726,7 @@ const AddUserForm: React.FC<{
             />
             <Label htmlFor="isActive">Active</Label>
           </div>
-          
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -665,6 +763,7 @@ const EditUserForm: React.FC<{
     canAccessLeads: user.canAccessLeads,
     canAccessStudents: user.canAccessStudents,
     canAccessUsers: user.canAccessUsers,
+    canAccessAgencies: user.canAccessAgencies,
     canAccessDashboard: user.canAccessDashboard,
     isActive: user.isActive
   });
@@ -698,7 +797,7 @@ const EditUserForm: React.FC<{
               />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name</Label>
@@ -716,9 +815,71 @@ const EditUserForm: React.FC<{
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
               />
             </div>
+            {/* Agencies Access Checkbox */}
           </div>
-          
-          
+
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white">Permissions</h4>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="edit-canAccessLeads"
+                  checked={formData.canAccessLeads}
+                  onChange={(e) => setFormData({ ...formData, canAccessLeads: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-canAccessLeads">Can Access Leads</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="edit-canAccessStudents"
+                  checked={formData.canAccessStudents}
+                  onChange={(e) => setFormData({ ...formData, canAccessStudents: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-canAccessStudents">Can Access Students</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="edit-canAccessAgencies"
+                  checked={formData.canAccessAgencies}
+                  onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-canAccessAgencies">Can Access Agencies</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="edit-canAccessUsers"
+                  checked={formData.canAccessUsers}
+                  onChange={(e) => setFormData({ ...formData, canAccessUsers: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-canAccessUsers">Can Access Users</Label>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="edit-canAccessDashboard"
+                  checked={formData.canAccessDashboard}
+                  onChange={(e) => setFormData({ ...formData, canAccessDashboard: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-canAccessDashboard">Can Access Dashboard</Label>
+              </div>
+            </div>
+          </div>
+
+
           <div>
             <Label htmlFor="role">Role *</Label>
             <Select
@@ -730,7 +891,7 @@ const EditUserForm: React.FC<{
               ]}
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             <input
               type="checkbox"
@@ -741,7 +902,7 @@ const EditUserForm: React.FC<{
             />
             <Label htmlFor="isActive">Active</Label>
           </div>
-          
+
           <div className="flex justify-end gap-2">
             <button
               type="button"

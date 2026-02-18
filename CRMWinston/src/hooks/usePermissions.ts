@@ -8,12 +8,12 @@ export const usePermissions = () => {
       console.log('🔍 usePermissions: No user found');
       return false;
     }
-    
+
     console.log('🔍 usePermissions: User object:', user);
     console.log('🔍 usePermissions: Checking permission:', permission);
     console.log('🔍 usePermissions: user.role:', user.role);
     console.log('🔍 usePermissions: user.userRole:', user.userRole);
-    
+
     // Check specific permission (admin users now respect individual permissions)
     switch (permission) {
       case 'leads':
@@ -28,6 +28,11 @@ export const usePermissions = () => {
         const canAccessUsers = user.canAccessUsers ?? false;
         console.log('🔍 usePermissions: canAccessUsers:', canAccessUsers);
         return canAccessUsers;
+      case 'agencies':
+        // @ts-ignore
+        const canAccessAgencies = user.canAccessAgencies ?? false;
+        console.log('🔍 usePermissions: canAccessAgencies:', canAccessAgencies);
+        return canAccessAgencies;
       case 'dashboard':
         const canAccessDashboard = user.canAccessDashboard ?? false;
         console.log('🔍 usePermissions: canAccessDashboard:', canAccessDashboard);
@@ -54,6 +59,7 @@ export const usePermissions = () => {
   const canAccessLeads = () => hasPermission('leads');
   const canAccessStudents = () => hasPermission('students');
   const canAccessUsers = () => hasPermission('users');
+  const canAccessAgencies = () => hasPermission('agencies');
   const canAccessDashboard = () => hasPermission('dashboard');
   const canAccessTimesheets = () => hasPermission('timesheets');
 
@@ -76,19 +82,26 @@ export const usePermissions = () => {
   const canDeleteUsers = () => canAccessUsers();
   const canManageRoles = () => canAccessUsers();
 
+  const canViewAgencies = () => canAccessAgencies();
+  const canCreateAgencies = () => canAccessAgencies();
+  const canEditAgencies = () => canAccessAgencies();
+  const canDeleteAgencies = () => canAccessAgencies();
+
   const canViewDashboard = () => canAccessDashboard();
   const canViewAnalytics = () => canAccessDashboard();
 
   const isAdmin = () => user?.role === 'admin';
   const isTeamMember = () => user?.role === 'team_member';
-  
+
   // Check if admin has full access (all permissions enabled)
   const isAdminWithFullAccess = () => {
     if (!isAdmin()) return false;
-    return user?.canAccessLeads && 
-           user?.canAccessStudents && 
-           user?.canAccessUsers && 
-           user?.canAccessDashboard;
+    return user?.canAccessLeads &&
+      user?.canAccessStudents &&
+      user?.canAccessStudents &&
+      user?.canAccessUsers &&
+      user?.canAccessAgencies &&
+      user?.canAccessDashboard;
   };
 
   return {
@@ -98,6 +111,7 @@ export const usePermissions = () => {
     canAccessLeads,
     canAccessStudents,
     canAccessUsers,
+    canAccessAgencies,
     canAccessDashboard,
     canAccessTimesheets,
     canViewLeads,
@@ -115,6 +129,10 @@ export const usePermissions = () => {
     canEditUsers,
     canDeleteUsers,
     canManageRoles,
+    canViewAgencies,
+    canCreateAgencies,
+    canEditAgencies,
+    canDeleteAgencies,
     canViewDashboard,
     canViewAnalytics,
     isAdmin,

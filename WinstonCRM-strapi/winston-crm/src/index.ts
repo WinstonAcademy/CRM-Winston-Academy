@@ -8,7 +8,7 @@ export default {
    *
    * This gives you an opportunity to extend code.
    */
-  register(/* { strapi }: { strapi: Core.Strapi } */) {},
+  register(/* { strapi }: { strapi: Core.Strapi } */) { },
 
   /**
    * An asynchronous bootstrap function that runs before
@@ -51,7 +51,7 @@ export default {
       }
 
       console.log(`✅ API permissions configured successfully! Enabled ${enabledCount} permissions.`);
-      
+
       // Enable permissions for custom clock-in/clock-out actions
       console.log('🔧 Enabling permissions for custom timesheet actions...');
       try {
@@ -62,14 +62,14 @@ export default {
             action: 'api::timesheet.timesheet.clockIn'
           }
         });
-        
+
         const clockOutPermission = await strapi.query('plugin::users-permissions.permission').findOne({
           where: {
             role: authenticatedRole.id,
             action: 'api::timesheet.timesheet.clockOut'
           }
         });
-        
+
         // Create or enable clock-in permission
         if (clockInPermission) {
           if (!clockInPermission.enabled) {
@@ -89,7 +89,7 @@ export default {
           });
           console.log('✓ Created clock-in permission');
         }
-        
+
         // Create or enable clock-out permission
         if (clockOutPermission) {
           if (!clockOutPermission.enabled) {
@@ -126,6 +126,19 @@ export default {
           data: { canAccessTimesheets: true }
         });
         console.log(`✓ Updated user ${user.email} with canAccessTimesheets`);
+      }
+    }
+
+    // Update existing users to have canAccessAgencies
+    console.log('🔧 Updating users with canAccessAgencies field...');
+    const allUsersForAgencies = await strapi.query('plugin::users-permissions.user').findMany();
+    for (const user of allUsersForAgencies) {
+      if (user.canAccessAgencies === null || user.canAccessAgencies === undefined) {
+        await strapi.query('plugin::users-permissions.user').update({
+          where: { id: user.id },
+          data: { canAccessAgencies: false }
+        });
+        console.log(`✓ Updated user ${user.email} with canAccessAgencies`);
       }
     }
 

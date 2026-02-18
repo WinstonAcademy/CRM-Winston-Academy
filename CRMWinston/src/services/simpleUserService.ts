@@ -3,24 +3,25 @@ import { realBackendAuthService, RealBackendUser } from './realBackendAuthServic
 // User type compatible with RealBackendUser for UI components
 export type User = RealBackendUser & {
   phone?: string;
+  canAccessAgencies?: boolean;
 };
 
 class SimpleUserService {
-  private readonly BASE_URL = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+  private readonly BASE_URL = 'http://localhost:1337';
 
   // Get all users from backend (users-permissions authentication users)
   async getUsers(): Promise<User[]> {
     try {
       console.log('🔄 Fetching authentication users from backend...');
-      
+
       // Get token from realBackendAuthService
       const token = realBackendAuthService.getCurrentToken();
-      
+
       if (!token) {
         console.warn('❌ No authentication token available');
         return [];
       }
-      
+
       // Fetch users-permissions users directly
       const response = await fetch(`${this.BASE_URL}/api/users?populate=role`, {
         headers: {
@@ -28,17 +29,17 @@ class SimpleUserService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         console.error('Users fetch failed:', response.status, response.statusText);
         return [];
       }
-      
+
       const data = await response.json();
       const usersArray = Array.isArray(data) ? data : (data.data || data || []);
-      
+
       console.log('✅ Fetched', usersArray.length, 'users');
-      
+
       return usersArray.map((user: any): User => ({
         id: user.id,
         documentId: user.documentId || '',
@@ -57,8 +58,9 @@ class SimpleUserService {
         canAccessLeads: user.canAccessLeads || user.can_access_leads || false,
         canAccessStudents: user.canAccessStudents || user.can_access_students || false,
         canAccessUsers: user.canAccessUsers || user.can_access_users || false,
+        canAccessAgencies: user.canAccessAgencies || user.can_access_agencies || false,
         canAccessDashboard: user.canAccessDashboard !== false && user.can_access_dashboard !== false,
-        isActive: user.isActive !== false && user.is_active !== false,
+        isActive: !(user.blocked ?? false),
         phone: user.phone || '',
       }));
     } catch (error) {
@@ -71,19 +73,19 @@ class SimpleUserService {
   async getCurrentUser(): Promise<User | null> {
     const user = realBackendAuthService.getCurrentUser();
     if (!user) return null;
-    
+
     // Fetch full user details including phone
     try {
       const token = realBackendAuthService.getCurrentToken();
       if (!token) return user as User;
-      
+
       const response = await fetch(`${this.BASE_URL}/api/users/${user.id}?populate=*`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (response.ok) {
         const userData = await response.json();
         return {
@@ -94,7 +96,7 @@ class SimpleUserService {
     } catch (error) {
       console.error('Error fetching current user details:', error);
     }
-    
+
     return user as User;
   }
 
@@ -105,18 +107,18 @@ class SimpleUserService {
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
       const response = await fetch(`${this.BASE_URL}/api/users/${id}?populate=*`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         return null;
       }
-      
+
       const userData = await response.json();
       return this.mapToUser(userData);
     } catch (error) {
@@ -138,20 +140,62 @@ class SimpleUserService {
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
+      // Fetch roles to get IDs if role is being updated
+      let roleId;
+      if (profileData.role) {
+        try {
+          const rolesResponse = await fetch(`${this.BASE_URL}/api/users-permissions/roles`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (rolesResponse.ok) {
+            const roles = await rolesResponse.json();
+            // Map 'admin' to 'Authenticated' (or specific admin role if exists) and 'team_member' to 'Authenticated'
+            // In a real app, you'd have distinct roles. For now, assuming 'Authenticated' is the base.
+            // If you have custom roles 'Admin' and 'Team Member', map them here.
+
+            // Checking for specific roles based on the string
+            const targetRole = roles.roles?.find((r: any) =>
+              r.name.toLowerCase() === (profileData.role === 'admin' ? 'admin' : 'authenticated')
+            ) || roles.roles?.find((r: any) => r.type === 'authenticated');
+
+            if (targetRole) {
+              roleId = targetRole.id;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching roles:', error);
+        }
+      }
+
+      const updatePayload: any = { ...profileData };
+      if (roleId) {
+        updatePayload.role = roleId;
+      }
+      // Strapi user controller expects 'userRole' for the custom field if you added one, 
+      // but 'role' relationship update requires ID. 
+      // UserTable sends 'role' as 'admin' | 'team_member'. 
+      // We'll send both: 'role' as ID (for permission relation) and 'userRole' as string (for UI display if custom field exists)
+      updatePayload.userRole = profileData.role;
+
       const response = await fetch(`${this.BASE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(profileData),
+        body: JSON.stringify(updatePayload),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to update user profile');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Update user profile failed:', { status: response.status, statusText: response.statusText, errorData });
+        throw new Error(`Failed to update user profile: ${response.status} ${response.statusText}`);
       }
-      
+
       const userData = await response.json();
       return this.mapToUser(userData);
     } catch (error) {
@@ -165,6 +209,7 @@ class SimpleUserService {
     canAccessLeads?: boolean;
     canAccessStudents?: boolean;
     canAccessUsers?: boolean;
+    canAccessAgencies?: boolean;
     canAccessDashboard?: boolean;
     isActive?: boolean;
   }): Promise<User | null> {
@@ -173,20 +218,28 @@ class SimpleUserService {
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
+      // Convert isActive to Strapi's built-in blocked field
+      // blocked = !isActive (so inactive users are blocked from login)
+      const payload: Record<string, any> = { ...permissions };
+      if (typeof permissions.isActive === 'boolean') {
+        payload.blocked = !permissions.isActive;
+        delete payload.isActive;
+      }
+
       const response = await fetch(`${this.BASE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(permissions),
+        body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update user permissions');
       }
-      
+
       const userData = await response.json();
       return this.mapToUser(userData);
     } catch (error) {
@@ -205,6 +258,7 @@ class SimpleUserService {
     canAccessLeads: boolean;
     canAccessStudents: boolean;
     canAccessUsers: boolean;
+    canAccessAgencies: boolean;
     canAccessDashboard: boolean;
     password?: string;
   }): Promise<User> {
@@ -213,7 +267,7 @@ class SimpleUserService {
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
       // Register user via Strapi auth endpoint
       const registerResponse = await fetch(`${this.BASE_URL}/api/auth/local/register`, {
         method: 'POST',
@@ -226,15 +280,15 @@ class SimpleUserService {
           password: userData.password || 'DefaultPass123!',
         }),
       });
-      
+
       if (!registerResponse.ok) {
         const errorData = await registerResponse.json();
         throw new Error(errorData.error?.message || 'Failed to create user');
       }
-      
+
       const authData = await registerResponse.json();
       const newUserId = authData.user.id;
-      
+
       // Update user profile with additional data
       const updateResponse = await fetch(`${this.BASE_URL}/api/users/${newUserId}`, {
         method: 'PUT',
@@ -249,14 +303,15 @@ class SimpleUserService {
           canAccessLeads: userData.canAccessLeads,
           canAccessStudents: userData.canAccessStudents,
           canAccessUsers: userData.canAccessUsers,
+          canAccessAgencies: userData.canAccessAgencies,
           canAccessDashboard: userData.canAccessDashboard,
         }),
       });
-      
+
       if (!updateResponse.ok) {
         throw new Error('Failed to update user profile');
       }
-      
+
       const userDataResponse = await updateResponse.json();
       return this.mapToUser(userDataResponse);
     } catch (error) {
@@ -285,19 +340,20 @@ class SimpleUserService {
       canAccessLeads: userData.canAccessLeads || userData.can_access_leads || false,
       canAccessStudents: userData.canAccessStudents || userData.can_access_students || false,
       canAccessUsers: userData.canAccessUsers || userData.can_access_users || false,
+      canAccessAgencies: userData.canAccessAgencies || userData.can_access_agencies || false,
       canAccessDashboard: userData.canAccessDashboard !== false && userData.can_access_dashboard !== false,
-      isActive: userData.isActive !== false && userData.is_active !== false,
+      isActive: !(userData.blocked ?? false),
       phone: userData.phone || userData.phone_number || '',
     };
   }
 
   // Check if current user has permission
-  hasPermission(permission: 'leads' | 'students' | 'users' | 'dashboard'): boolean {
+  hasPermission(permission: 'leads' | 'students' | 'users' | 'agencies' | 'dashboard'): boolean {
     const currentUser = realBackendAuthService.getCurrentUser();
     if (!currentUser) return false;
-    
+
     if (currentUser.role === 'admin' || currentUser.userRole === 'admin') return true;
-    
+
     switch (permission) {
       case 'leads':
         return currentUser.canAccessLeads ?? false;
@@ -305,6 +361,9 @@ class SimpleUserService {
         return currentUser.canAccessStudents ?? false;
       case 'users':
         return currentUser.canAccessUsers ?? false;
+      case 'agencies':
+        // @ts-ignore - Dynamic property access or need to update realBackendUser type
+        return currentUser.canAccessAgencies ?? false;
       case 'dashboard':
         return currentUser.canAccessDashboard ?? true;
       default:

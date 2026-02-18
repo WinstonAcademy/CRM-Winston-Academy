@@ -17,7 +17,7 @@ const Signup: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  // const { register } = useAuth();
   const router = useRouter();
 
   const handleChange = (field: string, value: string) => {
@@ -52,7 +52,7 @@ const Signup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -61,6 +61,8 @@ const Signup: React.FC = () => {
     setError(null);
 
     try {
+      // Register functionality disabled for deployment
+      /*
       await register({
         username: formData.username.trim(),
         email: formData.email.trim(),
@@ -69,9 +71,11 @@ const Signup: React.FC = () => {
         lastName: formData.lastName.trim() || undefined,
         phone: formData.phone.trim() || undefined,
       });
-      
+      */
+
       // Redirect to dashboard after successful registration
-      router.push('/');
+      // router.push('/');
+      alert("Registration is currently disabled.");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
     } finally {

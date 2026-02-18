@@ -60,7 +60,7 @@ export interface RegisterData {
 class RealBackendAuthService {
   private currentUser: RealBackendUser | null = null;
   private currentToken: string | null = null;
-  private readonly BASE_URL = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || (typeof window !== 'undefined' ? '' : 'http://localhost:1337');
+  private readonly BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://127.0.0.1:1337');
   private readonly USE_PROXY = typeof window !== 'undefined'; // Use proxy in browser
   private tokenRefreshInterval: NodeJS.Timeout | null = null;
   private readonly TOKEN_REFRESH_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes

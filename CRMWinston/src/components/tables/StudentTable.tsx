@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useEditForm } from "@/context/EditFormContext";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
@@ -44,7 +45,7 @@ const formatFileSize = (bytes: number | undefined) => {
 
 const getFileIcon = (mimeType: string | undefined) => {
   if (!mimeType) return "📄";
-  
+
   if (mimeType.startsWith('image/')) return "🖼️";
   if (mimeType.startsWith('video/')) return "🎥";
   if (mimeType.startsWith('audio/')) return "🎵";
@@ -52,13 +53,13 @@ const getFileIcon = (mimeType: string | undefined) => {
   if (mimeType.includes('word') || mimeType.includes('document')) return "📘";
   if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return "📗";
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return "📙";
-  
+
   return "📄";
 };
 
 export default function StudentTable() {
   const { isEditFormOpen, setIsEditFormOpen, isAddLeadFormOpen, setIsAddLeadFormOpen, isDocumentModalOpen, setIsDocumentModalOpen } = useEditForm();
-  
+
   // State variables
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,10 +77,18 @@ export default function StudentTable() {
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const [showAddStudentDropdown, setShowAddStudentDropdown] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [datePickerResetKey, setDatePickerResetKey] = useState(0);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
+  const isMountedRef = useRef(true);
+  const [isBodyReady, setIsBodyReady] = useState(false);
+  const portalContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState({
@@ -96,6 +105,49 @@ export default function StudentTable() {
     Documents: true,
     Actions: true,
   });
+
+  // Track component mount status and body availability, create portal container
+  useEffect(() => {
+    isMountedRef.current = true;
+    // Check if document.body is available and create portal container
+    const setupPortal = () => {
+      if (typeof document !== 'undefined' && document.body) {
+        // Create portal container if it doesn't exist
+        if (!portalContainerRef.current) {
+          const container = document.createElement('div');
+          container.id = 'student-filter-portal-container';
+          container.style.position = 'fixed';
+          container.style.top = '0';
+          container.style.left = '0';
+          container.style.zIndex = '9999';
+          container.style.pointerEvents = 'auto'; // Allow interactions with dropdown content
+          document.body.appendChild(container);
+          portalContainerRef.current = container;
+        }
+        setIsBodyReady(true);
+      }
+    };
+    setupPortal();
+    // Also check after a short delay in case body isn't ready yet
+    const timeout = setTimeout(setupPortal, 100);
+    return () => {
+      isMountedRef.current = false;
+      clearTimeout(timeout);
+      // Clean up portal container on unmount
+      if (portalContainerRef.current) {
+        try {
+          // Only remove if parent exists and is document.body
+          if (portalContainerRef.current.parentNode && portalContainerRef.current.parentNode === document.body) {
+            document.body.removeChild(portalContainerRef.current);
+          }
+        } catch (e) {
+          // Silently fail if removal fails (parent might already be null)
+          console.warn('Could not remove portal container:', e);
+        }
+        portalContainerRef.current = null;
+      }
+    };
+  }, []);
 
   // Fetch students on component mount
   useEffect(() => {
@@ -114,15 +166,37 @@ export default function StudentTable() {
       if (showExportDropdown && !(event.target as Element).closest('.export-dropdown')) {
         setShowExportDropdown(false);
       }
-      if (showFilterDropdown && !(event.target as Element).closest('.filter-dropdown')) {
-        setShowFilterDropdown(false);
+      if (showFilterDropdown) {
+        const target = event.target as Element;
+        // Check if click is outside both the button and the portal dropdown
+        // Also exclude flatpickr calendar clicks, date picker inputs, and any input/select elements
+        const isDatePickerInput = target.id === 'start-date-filter-student' ||
+          target.id === 'end-date-filter-student' ||
+          target.closest('#start-date-filter-student') ||
+          target.closest('#end-date-filter-student');
+        const isInputElement = target.tagName === 'INPUT' ||
+          target.tagName === 'SELECT' ||
+          target.closest('input') ||
+          target.closest('select');
+
+        if (
+          filterButtonRef.current &&
+          !filterButtonRef.current.contains(target) &&
+          !target.closest('[data-filter-dropdown]') &&
+          !target.closest('.flatpickr-calendar') &&
+          !target.closest('.flatpickr-wrapper') &&
+          !isDatePickerInput &&
+          !(isInputElement && target.closest('[data-filter-dropdown]'))
+        ) {
+          setShowFilterDropdown(false);
+        }
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showColumnDropdown, showAddStudentDropdown, showExportDropdown, showFilterDropdown]);
-  
+  }, [showColumnDropdown, showAddStudentDropdown, showExportDropdown]);
+
   // Close dropdowns when pressing Escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -142,6 +216,74 @@ export default function StudentTable() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [showColumnDropdown, showAddStudentDropdown, showExportDropdown, showFilterDropdown, isDocumentModalOpen, selectedDoc]);
 
+  // Clear DatePicker inputs when filters are cleared
+  useEffect(() => {
+    // Clear start date picker if filter is empty
+    if (!startDateFilter) {
+      const startDateInput = document.getElementById('start-date-filter-student') as HTMLInputElement;
+      if (startDateInput) {
+        if ((startDateInput as any)._flatpickr) {
+          try {
+            (startDateInput as any)._flatpickr.clear();
+          } catch (e) { }
+        }
+        startDateInput.value = '';
+      }
+    }
+
+    // Clear end date picker if filter is empty
+    if (!endDateFilter) {
+      const endDateInput = document.getElementById('end-date-filter-student') as HTMLInputElement;
+      if (endDateInput) {
+        if ((endDateInput as any)._flatpickr) {
+          try {
+            (endDateInput as any)._flatpickr.clear();
+          } catch (e) { }
+        }
+        endDateInput.value = '';
+      }
+    }
+  }, [startDateFilter, endDateFilter]);
+
+  // Calculate filter dropdown position when it opens
+  useEffect(() => {
+    if (showFilterDropdown && filterButtonRef.current) {
+      const updatePosition = () => {
+        if (filterButtonRef.current) {
+          const rect = filterButtonRef.current.getBoundingClientRect();
+          const dropdownWidth = 320; // w-80 = 320px
+          const viewportWidth = window.innerWidth;
+
+          let left = rect.left;
+          // If dropdown would overflow on the right, align it to the right edge of the button
+          if (left + dropdownWidth > viewportWidth) {
+            left = rect.right - dropdownWidth;
+          }
+          // Ensure it doesn't go off the left edge
+          if (left < 0) {
+            left = 8; // 8px padding from edge
+          }
+
+          setFilterDropdownPosition({
+            top: rect.bottom + 4,
+            left: left
+          });
+        }
+      };
+
+      updatePosition();
+
+      // Update position on scroll or resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [showFilterDropdown]);
+
   const fetchStudents = async () => {
     try {
       setLoading(true);
@@ -157,50 +299,237 @@ export default function StudentTable() {
     }
   };
 
+  // Get unique values for filter dropdowns
+  const uniqueCourses = useMemo(() => {
+    if (!students || students.length === 0) return [];
+    const courses = students
+      .map(student => student.course)
+      .filter((course): course is string => Boolean(course && course.trim() !== ''));
+    return Array.from(new Set(courses)).sort();
+  }, [students]);
+
+  const uniqueCountries = useMemo(() => {
+    if (!students || students.length === 0) return [];
+    const countries = students
+      .map(student => student.country)
+      .filter((country): country is string => Boolean(country && country.trim() !== ''));
+    return Array.from(new Set(countries)).sort();
+  }, [students]);
+
   // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
-    if (dateRange.start || dateRange.end) count++;
+    if (startDateFilter || endDateFilter) count++;
     if (enrollmentStatusFilter) count++;
     if (countryFilter) count++;
     if (courseFilter) count++;
     return count;
   };
 
-  // Search and filter functionality
-  const searchStudents = () => {
+  // Clear all filters function
+  const handleClearAllFilters = () => {
+    // Function to destroy and clear flatpickr instances
+    const destroyDatePickers = () => {
+      if (typeof document === 'undefined' || !document.body) {
+        return;
+      }
+
+      try {
+        const startDateInput = document.getElementById('start-date-filter-student') as HTMLInputElement;
+        const endDateInput = document.getElementById('end-date-filter-student') as HTMLInputElement;
+
+        // Destroy and clear start date picker
+        if (startDateInput) {
+          const flatpickrInstance = (startDateInput as any)._flatpickr;
+          if (flatpickrInstance) {
+            try {
+              flatpickrInstance.clear();
+              flatpickrInstance.destroy();
+            } catch (e) {
+              // If destroy fails, try to clear at least
+              try {
+                flatpickrInstance.clear();
+              } catch (e2) { }
+            }
+          }
+          startDateInput.value = '';
+        }
+
+        // Destroy and clear end date picker
+        if (endDateInput) {
+          const flatpickrInstance = (endDateInput as any)._flatpickr;
+          if (flatpickrInstance) {
+            try {
+              flatpickrInstance.clear();
+              flatpickrInstance.destroy();
+            } catch (e) {
+              // If destroy fails, try to clear at least
+              try {
+                flatpickrInstance.clear();
+              } catch (e2) { }
+            }
+          }
+          endDateInput.value = '';
+        }
+      } catch (error) {
+        // Silently fail if DOM manipulation fails
+        console.warn('Error clearing date pickers:', error);
+      }
+    };
+
+    // First, destroy existing flatpickr instances
+    destroyDatePickers();
+
+    // Clear all filter states immediately
+    setStartDateFilter('');
+    setEndDateFilter('');
+    setEnrollmentStatusFilter('');
+    setCountryFilter('');
+    setCourseFilter('');
+    setCurrentPage(1);
+
+    // Force DatePicker remount by incrementing reset key (this will cause React to unmount and remount the components)
+    setDatePickerResetKey(prev => prev + 1);
+
+    // Clear again after a short delay to ensure everything is cleared
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        destroyDatePickers();
+      }
+    }, 100);
+
+    // One more time after remount to ensure clean state
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        const startDateInput = document.getElementById('start-date-filter-student') as HTMLInputElement;
+        const endDateInput = document.getElementById('end-date-filter-student') as HTMLInputElement;
+        if (startDateInput) startDateInput.value = '';
+        if (endDateInput) endDateInput.value = '';
+      }
+    }, 300);
+  };
+
+  // Search and filter functionality - optimized with useMemo
+  const searchedStudents = useMemo(() => {
     if (!students || students.length === 0) {
       return [];
     }
-    
+
     return students.filter(student => {
       if (!student) return false;
-      
-      const matchesSearch = !searchTerm || 
-        Object.values(student).some(value => 
-          value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Search in relevant string fields only
+      const matchesSearch = !searchTerm || (() => {
+        const searchLower = searchTerm.toLowerCase();
+        const searchableFields = [
+          student.regNo,
+          student.name,
+          student.email,
+          student.phone,
+          student.course,
+          student.country,
+          student.source,
+          student.notes,
+          student.enrollmentStatus,
+          student.applicationStatus
+        ];
+        return searchableFields.some(field =>
+          field && field.toString().toLowerCase().includes(searchLower)
         );
-      
-      const matchesStatus = !enrollmentStatusFilter || student.enrollmentStatus === enrollmentStatusFilter;
-      const matchesCountry = !countryFilter || student.country === countryFilter;
-      const matchesCourse = !courseFilter || student.course === courseFilter;
-      
-      const matchesDateRange = !dateRange.start || !dateRange.end || 
-        (student.startDate >= dateRange.start && student.startDate <= dateRange.end);
+      })();
+
+      // Enrollment Status filter - exact match
+      const matchesStatus = !enrollmentStatusFilter ||
+        (student.enrollmentStatus && student.enrollmentStatus.trim() === enrollmentStatusFilter.trim());
+
+      // Country filter - exact match (case-sensitive to match dropdown values)
+      const matchesCountry = !countryFilter ||
+        (student.country && student.country.trim() === countryFilter.trim());
+
+      // Course filter - exact match (case-sensitive to match dropdown values)
+      const matchesCourse = !courseFilter ||
+        (student.course && student.course.trim() === courseFilter.trim());
+
+      // Date filtering: Filter for courses that are active/ongoing between the selected dates
+      // A course overlaps with the filter date range if:
+      // - Course starts before or on the filter end date AND
+      // - Course ends after or on the filter start date
+      let matchesDateRange = true;
+      if (startDateFilter || endDateFilter) {
+        if (!student.startDate || !student.endDate) {
+          matchesDateRange = false; // Exclude students without both course dates
+        } else {
+          try {
+            const courseStartDate = new Date(student.startDate);
+            const courseEndDate = new Date(student.endDate);
+
+            if (isNaN(courseStartDate.getTime()) || isNaN(courseEndDate.getTime())) {
+              matchesDateRange = false;
+            } else {
+              if (startDateFilter && endDateFilter) {
+                // Both dates provided: Course must overlap with the date range
+                const filterStartDate = new Date(startDateFilter);
+                const filterEndDate = new Date(endDateFilter);
+                if (isNaN(filterStartDate.getTime()) || isNaN(filterEndDate.getTime())) {
+                  matchesDateRange = false;
+                } else {
+                  // Course overlaps if: courseStart <= filterEnd AND courseEnd >= filterStart
+                  matchesDateRange = courseStartDate <= filterEndDate && courseEndDate >= filterStartDate;
+                }
+              } else if (startDateFilter) {
+                // Only start date provided: Course must end on or after the filter start date
+                const filterStartDate = new Date(startDateFilter);
+                if (isNaN(filterStartDate.getTime())) {
+                  matchesDateRange = false;
+                } else {
+                  matchesDateRange = courseEndDate >= filterStartDate;
+                }
+              } else if (endDateFilter) {
+                // Only end date provided: Course must start on or before the filter end date
+                const filterEndDate = new Date(endDateFilter);
+                if (isNaN(filterEndDate.getTime())) {
+                  matchesDateRange = false;
+                } else {
+                  matchesDateRange = courseStartDate <= filterEndDate;
+                }
+              }
+            }
+          } catch (e) {
+            matchesDateRange = false;
+          }
+        }
+      }
 
       return matchesSearch && matchesStatus && matchesCountry && matchesCourse && matchesDateRange;
     });
-  };
+  }, [students, searchTerm, enrollmentStatusFilter, countryFilter, courseFilter, startDateFilter, endDateFilter]);
 
-  const searchedStudents = searchStudents();
+  // Sorting - must happen before pagination
+  const sortedStudents = useMemo(() => {
+    if (!searchedStudents || searchedStudents.length === 0) return [];
+    if (!sortConfig || !sortConfig.key) return searchedStudents;
 
-  // Pagination
+    return [...searchedStudents].sort((a, b) => {
+      if (!a || !b) return 0;
+
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      if (aValue && bValue) {
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [searchedStudents, sortConfig]);
+
+  // Pagination - happens after sorting
   const indexOfLastStudent = currentPage * studentsPerPage;
   const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
-  const currentStudents = searchedStudents && searchedStudents.length > 0 ? searchedStudents.slice(indexOfFirstStudent, indexOfLastStudent) : [];
-  const totalPages = Math.ceil((searchedStudents?.length || 0) / studentsPerPage);
+  const currentStudents = sortedStudents && sortedStudents.length > 0 ? sortedStudents.slice(indexOfFirstStudent, indexOfLastStudent) : [];
+  const totalPages = Math.ceil((sortedStudents?.length || 0) / studentsPerPage);
 
-  // Sorting
+  // Sorting handlers
   const handleSort = (key: keyof Student) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -213,19 +542,6 @@ export default function StudentTable() {
     if (sortConfig?.key !== key) return null;
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
-
-  const sortedStudents = currentStudents && currentStudents.length > 0 ? [...currentStudents].sort((a, b) => {
-    if (!sortConfig || !a || !b) return 0;
-    
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-    
-    if (aValue && bValue) {
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    }
-    return 0;
-  }) : [];
 
   // Row selection
   const handleRowSelect = (studentId: number) => {
@@ -279,12 +595,12 @@ export default function StudentTable() {
       // Get JWT token from realBackendAuthService (same as LeadsTable)
       const token = realBackendAuthService.getCurrentToken();
       console.log('🔑 JWT Token:', token ? `${token.substring(0, 50)}...` : 'No token found');
-      
+
       if (!token) {
         alert('Authentication required. Please log in again.');
         return;
       }
-      
+
       // Log the data being sent
       const payload = {
         data: {
@@ -304,9 +620,9 @@ export default function StudentTable() {
           applicationStatus: studentData.applicationStatus || null
         }
       };
-      
+
       console.log('📤 Sending student data:', payload);
-      
+
       const studentResponse = await fetch(`${API_CONFIG.STRAPI_URL}/api/students`, {
         method: 'POST',
         headers: {
@@ -317,16 +633,16 @@ export default function StudentTable() {
       });
 
       console.log('📥 Response status:', studentResponse.status, studentResponse.statusText);
-      
+
       if (!studentResponse.ok) {
         const errorText = await studentResponse.text();
         console.error('❌ Student creation failed (Status:', studentResponse.status, ')');
         console.error('❌ Full error response:', errorText);
-        
+
         try {
           const errorData = JSON.parse(errorText);
           console.error('❌ Parsed error:', errorData);
-          
+
           if (errorData.error?.message?.includes('already taken')) {
             alert(`Registration number "${studentData.regNo}" is already taken. Please use a different registration number.`);
           } else if (errorData.error?.message) {
@@ -355,7 +671,7 @@ export default function StudentTable() {
           for (let i = 0; i < files.length; i++) {
             formData.append('files', files[i]);
           }
-          
+
           const uploadResponse = await fetch(`${API_CONFIG.STRAPI_URL}/api/upload`, {
             method: 'POST',
             headers: {
@@ -404,12 +720,12 @@ export default function StudentTable() {
         ...studentData,
         documents: []
       };
-      
+
       setStudents(prev => [newStudent as Student, ...prev]);
       setShowAddStudentForm(false);
-      
+
       alert('Student created successfully!');
-      
+
       // Refresh the students list to get the actual data from backend
       fetchStudents();
     } catch (error) {
@@ -425,18 +741,22 @@ export default function StudentTable() {
     fileInput.type = 'file';
     fileInput.accept = '.xlsx,.xls,.xlsm,.xlsb,.csv,.tsv';
     fileInput.style.display = 'none';
-    
+
     fileInput.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         handleExcelUpload(file);
       }
       // Clean up
-      document.body.removeChild(fileInput);
+      if (document.body && document.body.contains(fileInput)) {
+        document.body.removeChild(fileInput);
+      }
     };
-    
-    document.body.appendChild(fileInput);
-    fileInput.click();
+
+    if (document.body) {
+      document.body.appendChild(fileInput);
+      fileInput.click();
+    }
     setShowAddStudentDropdown(false);
   };
 
@@ -445,7 +765,7 @@ export default function StudentTable() {
     try {
       const fileExtension = file.name.toLowerCase().split('.').pop();
       console.log('📁 Processing file:', file.name, 'Type:', fileExtension);
-      
+
       if (fileExtension === 'csv' || fileExtension === 'tsv') {
         // Handle CSV/TSV files
         await handleCSVUpload(file, fileExtension);
@@ -453,7 +773,7 @@ export default function StudentTable() {
         // Handle Excel files
         await handleExcelFileUpload(file);
       }
-      
+
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Error processing file');
@@ -463,7 +783,7 @@ export default function StudentTable() {
   // Helper function to map headers to field names
   const mapHeaderToField = (header: string): string => {
     const normalizedHeader = header.toLowerCase().trim();
-    
+
     if (normalizedHeader.includes('name') || normalizedHeader === 'full name') {
       return 'name';
     } else if (normalizedHeader.includes('email') || normalizedHeader === 'e-mail') {
@@ -501,7 +821,7 @@ export default function StudentTable() {
     try {
       let successCount = 0;
       let errorCount = 0;
-      
+
       for (const student of students) {
         try {
           // Validate required fields
@@ -510,7 +830,7 @@ export default function StudentTable() {
             errorCount++;
             continue;
           }
-          
+
           // Validate email format
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(student.email)) {
@@ -518,40 +838,74 @@ export default function StudentTable() {
             errorCount++;
             continue;
           }
-          
-          // Prepare student data with defaults
-          const studentData = {
+
+          // Valid enum values from schema
+          const validStatuses = ['Active', 'Completed', 'Suspended', 'Withdrawn'];
+          const validCountries = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"];
+
+          // Match enum values (case-insensitive)
+          const matchEnum = (value: string, validValues: string[]) => {
+            if (!value) return null;
+            const trimmed = value.trim();
+            return validValues.find(v => v.trim().toLowerCase() === trimmed.toLowerCase()) || null;
+          };
+
+          const matchedStatus = matchEnum(student.enrollmentStatus || '', validStatuses);
+          const matchedCountry = matchEnum(student.country || '', validCountries);
+
+          // Prepare student data with defaults — only include valid enum values
+          // Helper to validate and clean date values — Strapi rejects empty strings for date fields
+          const cleanDate = (val: any): string | null => {
+            if (!val) return null;
+            const str = String(val).trim();
+            if (!str) return null;
+            // Accept yyyy-MM-dd format
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+            // Try to parse other formats
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+            return null;
+          };
+
+          const studentData: any = {
             name: student.name?.trim() || '',
             email: student.email?.trim() || '',
             phone: student.phone?.trim() || '',
             regNo: student.regNo?.trim() || '',
             course: student.course?.trim() || '',
-            country: student.country?.trim() || '',
             source: student.source?.trim() || '',
-            startDate: student.startDate || '',
-            endDate: student.endDate || '',
-            birthdate: student.birthdate || '',
+            startDate: cleanDate(student.startDate),
+            endDate: cleanDate(student.endDate),
+            birthdate: cleanDate(student.birthdate),
             notes: student.notes?.trim() || '',
-            enrollmentStatus: student.enrollmentStatus?.trim() || 'Active',
-            applicationStatus: student.applicationStatus?.trim() || ''
+            enrollmentStatus: matchedStatus || 'Active',
+            applicationStatus: student.applicationStatus?.trim() || '',
+            publishedAt: new Date().toISOString(),
           };
-          
+
+          // Only set country if we have a valid enum value (empty string causes validation error)
+          if (matchedCountry) studentData.country = matchedCountry;
+
+          console.log('📤 Sending student data:', studentData);
+
           // Create student in Strapi
+          const token = realBackendAuthService.getCurrentToken();
           const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/students`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
               data: studentData
             }),
           });
-          
+
           if (response.ok) {
             const newStudent = await response.json();
             console.log('✅ Student imported successfully:', newStudent.data);
             successCount++;
-            
+
             // Add to local state
             setStudents(prev => [...prev, newStudent.data]);
           } else {
@@ -559,26 +913,26 @@ export default function StudentTable() {
             console.error('❌ Failed to import student:', errorText);
             errorCount++;
           }
-          
+
           // Small delay to avoid overwhelming the API
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
         } catch (studentError) {
           console.error('❌ Error importing student:', studentError);
           errorCount++;
         }
       }
-      
+
       // Show final results
       const message = `Import completed!\n\n` +
         `✅ Successfully imported: ${successCount} students\n` +
         `❌ Failed to import: ${errorCount} students`;
-      
+
       alert(message);
-      
+
       // Refresh students list by triggering a re-fetch
       fetchStudents();
-      
+
     } catch (error) {
       console.error('Error during bulk import:', error);
       alert('Error during bulk import');
@@ -592,62 +946,62 @@ export default function StudentTable() {
       try {
         const content = e.target?.result as string;
         const delimiter = fileType === 'tsv' ? '\t' : ',';
-        
+
         // Parse CSV/TSV content
         const lines = content.split('\n').filter(line => line.trim());
-        
+
         if (lines.length < 2) {
           alert('CSV/TSV file must have at least a header row and one data row');
           return;
         }
-        
+
         // Parse headers
         const headers = lines[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
         console.log('📊 CSV/TSV headers:', headers);
-        
+
         // Parse data rows
         const students = lines.slice(1).map((line, index) => {
           const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
           const student: any = {};
-          
+
           headers.forEach((header, colIndex) => {
             if (header && values[colIndex] !== undefined) {
               const fieldName = mapHeaderToField(header);
               student[fieldName] = values[colIndex];
             }
           });
-          
+
           return student;
         });
-        
+
         console.log('📋 Parsed students from CSV/TSV:', students);
-        
+
         if (students.length === 0) {
           alert('No valid data found in CSV/TSV file');
           return;
         }
-        
-                  // Show preview and ask for confirmation
-          const confirmed = confirm(
-            `Found ${students.length} students in ${fileType.toUpperCase()} file.\n\n` +
-            `First student preview:\n` +
-            `Name: ${students[0].name || 'N/A'}\n` +
-            `Email: ${students[0].email || 'N/A'}\n` +
-            `Phone: ${students[0].phone || 'N/A'}\n` +
-            `Application Status: ${students[0].applicationStatus || 'N/A'}\n\n` +
-            `Do you want to import all students?`
-          );
-        
+
+        // Show preview and ask for confirmation
+        const confirmed = confirm(
+          `Found ${students.length} students in ${fileType.toUpperCase()} file.\n\n` +
+          `First student preview:\n` +
+          `Name: ${students[0].name || 'N/A'}\n` +
+          `Email: ${students[0].email || 'N/A'}\n` +
+          `Phone: ${students[0].phone || 'N/A'}\n` +
+          `Application Status: ${students[0].applicationStatus || 'N/A'}\n\n` +
+          `Do you want to import all students?`
+        );
+
         if (confirmed) {
           await importStudentsFromExcel(students);
         }
-        
+
       } catch (parseError) {
         console.error('Error parsing CSV/TSV file:', parseError);
         alert('Error parsing CSV/TSV file. Please ensure it\'s a valid file.');
       }
     };
-    
+
     reader.readAsText(file);
   };
 
@@ -656,7 +1010,7 @@ export default function StudentTable() {
     try {
       // Import XLSX dynamically to avoid SSR issues
       const XLSX = await import('xlsx');
-      
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
@@ -665,37 +1019,37 @@ export default function StudentTable() {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
+
           if (jsonData.length < 2) {
             alert('Excel file must have at least a header row and one data row');
             return;
           }
-          
+
           // Parse headers
           const headers = (jsonData[0] as string[]).map(h => h?.toString().trim() || '');
           console.log('📊 Excel headers:', headers);
-          
+
           // Parse data rows
           const students = (jsonData.slice(1) as any[][]).map((row, index) => {
             const student: any = {};
-            
+
             headers.forEach((header, colIndex) => {
               if (header && row[colIndex] !== undefined) {
                 const fieldName = mapHeaderToField(header);
                 student[fieldName] = row[colIndex]?.toString() || '';
               }
             });
-            
+
             return student;
           });
-          
+
           console.log('📋 Parsed students from Excel:', students);
-          
+
           if (students.length === 0) {
             alert('No valid data found in Excel file');
             return;
           }
-          
+
           // Show preview and ask for confirmation
           const confirmed = confirm(
             `Found ${students.length} students in Excel file.\n\n` +
@@ -706,19 +1060,19 @@ export default function StudentTable() {
             `Application Status: ${students[0].applicationStatus || 'N/A'}\n\n` +
             `Do you want to import all students?`
           );
-          
+
           if (confirmed) {
             await importStudentsFromExcel(students);
           }
-          
+
         } catch (parseError) {
           console.error('Error parsing Excel file:', parseError);
           alert('Error parsing Excel file. Please ensure it\'s a valid file.');
         }
       };
-      
+
       reader.readAsArrayBuffer(file);
-      
+
     } catch (error) {
       console.error('Error processing Excel file:', error);
       alert('Error processing Excel file. Please ensure you have the required dependencies.');
@@ -728,38 +1082,38 @@ export default function StudentTable() {
   // Handle upload documents
   const handleUploadDocuments = async (files: FileList | null, studentId: number) => {
     if (!files || files.length === 0) return;
-    
+
     try {
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i]);
       }
-      
+
       // Upload files to Strapi
       const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       });
-      
+
       if (response.ok) {
         const uploadedFiles = await response.json();
-        
+
         // Get the current student to see existing documents
         const currentStudent = students.find(student => student.id === studentId);
         if (!currentStudent) {
           alert('Student not found');
           return;
         }
-        
+
         console.log('🔍 Current student for document upload:', currentStudent);
         console.log('🔍 Student documents field:', currentStudent.Documents);
         console.log('🔍 Student documents field (lowercase):', currentStudent.documents);
-        
+
         // Prepare the new documents array for the backend
         const existingDocIds = (currentStudent.Documents || currentStudent.documents || []).map(doc => doc.id);
         const newDocIds = uploadedFiles.map((file: any) => file.id);
         const allDocIds = [...existingDocIds, ...newDocIds];
-        
+
         console.log('🔍 Document IDs for association:', {
           existingDocIds,
           newDocIds,
@@ -768,11 +1122,11 @@ export default function StudentTable() {
           newDocIdsLength: newDocIds.length,
           allDocIdsLength: allDocIds.length
         });
-        
+
         // Update the student in the backend to associate the documents
         console.log('🔗 Associating documents with student:', { studentId, allDocIds });
         console.log('📝 Current student data:', currentStudent);
-        
+
         // Try different field names that Strapi might expect
         const updatePayload = {
           data: {
@@ -782,14 +1136,14 @@ export default function StudentTable() {
             }
           }
         };
-        
+
         console.log('📤 Update payload structure:', updatePayload);
-        
+
         console.log('📤 Sending update payload:', updatePayload);
-        
+
         console.log('📤 Sending update payload:', updatePayload);
         console.log('📤 Update URL:', `${API_CONFIG.STRAPI_URL}/api/students/${studentId}`);
-        
+
         const updateResponse = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${studentId}`, {
           method: 'PUT',
           headers: {
@@ -797,20 +1151,20 @@ export default function StudentTable() {
           },
           body: JSON.stringify(updatePayload),
         });
-        
+
         console.log('📡 Update response status:', updateResponse.status);
         console.log('📡 Update response headers:', Object.fromEntries(updateResponse.headers.entries()));
-        
+
         if (!updateResponse.ok) {
           const errorText = await updateResponse.text();
           console.error('❌ Update failed with status:', updateResponse.status);
           console.error('❌ Error response text:', errorText);
-          
+
           // Try to get more detailed error information
           try {
             const errorData = JSON.parse(errorText);
             console.error('❌ Parsed error data:', errorData);
-            
+
             // Check for specific error types
             if (errorData.error) {
               console.error('❌ Error details:', {
@@ -827,10 +1181,10 @@ export default function StudentTable() {
         } else {
           console.log('✅ Update successful!');
         }
-        
+
         if (updateResponse.ok) {
           console.log('✅ Student update successful, updating local state...');
-          
+
           // Update local state with the new documents
           const updatedStudents = students.map(student => {
             if (student.id === studentId) {
@@ -844,13 +1198,13 @@ export default function StudentTable() {
                   size: file.size
                 }
               }));
-              
+
               console.log('🔄 Updating student documents:', {
                 existingDocsCount: existingDocs.length,
                 newDocsCount: newDocs.length,
                 totalDocsCount: existingDocs.length + newDocs.length
               });
-              
+
               return {
                 ...student,
                 Documents: [...existingDocs, ...newDocs]
@@ -858,7 +1212,7 @@ export default function StudentTable() {
             }
             return student;
           });
-          
+
           setStudents(updatedStudents);
           alert('Documents uploaded and associated with student successfully!');
         } else {
@@ -900,7 +1254,7 @@ export default function StudentTable() {
         window.open(url, '_blank');
       } else {
         // For server files, prepend the API URL
-      window.open(`${API_CONFIG.STRAPI_URL}${url}`, '_blank');
+        window.open(`${API_CONFIG.STRAPI_URL}${url}`, '_blank');
       }
     }
   };
@@ -908,30 +1262,38 @@ export default function StudentTable() {
   const handleDownloadDocument = async (documentData: any) => {
     const docUrl = documentData.url || documentData.attributes?.url;
     const docName = documentData.name || documentData.attributes?.name || documentData.attributes?.Name;
-    
+
     if (docUrl) {
       try {
         // Check if it's a local blob URL (from file upload)
         if (docUrl.startsWith('blob:')) {
           // For local files, create download directly from blob
-          const a = document.createElement('a');
-          a.href = docUrl;
-          a.download = docName || 'document';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          if (document.body) {
+            const a = document.createElement('a');
+            a.href = docUrl;
+            a.download = docName || 'document';
+            document.body.appendChild(a);
+            a.click();
+            if (document.body.contains(a)) {
+              document.body.removeChild(a);
+            }
+          }
         } else {
           // For server files, fetch and download
-        const response = await fetch(`${API_CONFIG.STRAPI_URL}${docUrl}`);
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = docName || 'document';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(a);
+          const response = await fetch(`${API_CONFIG.STRAPI_URL}${docUrl}`);
+          const blob = await response.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+          if (document.body) {
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = docName || 'document';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            if (document.body.contains(a)) {
+              document.body.removeChild(a);
+            }
+          }
         }
       } catch (err) {
         console.error('Error downloading document:', err);
@@ -960,6 +1322,27 @@ export default function StudentTable() {
     }));
   };
 
+  // Toggle all columns visibility (select all / deselect all)
+  const toggleSelectAll = () => {
+    const allSelected = Object.values(visibleColumns).every(v => v === true);
+    const newState = !allSelected; // If all selected, deselect all; otherwise select all
+
+    setVisibleColumns({
+      regNo: newState,
+      Name: newState,
+      Email: newState,
+      Phone: newState,
+      Course: newState,
+      Country: newState,
+      EnrollmentStatus: newState,
+      StartDate: newState,
+      EndDate: newState,
+      Notes: newState,
+      Documents: newState,
+      Actions: newState
+    });
+  };
+
   // Download CSV template
   const downloadTemplate = () => {
     const csvContent = [
@@ -969,13 +1352,17 @@ export default function StudentTable() {
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'students_template.csv';
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    if (document.body) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'students_template.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      if (document.body.contains(a)) {
+        document.body.removeChild(a);
+      }
+    }
   };
 
   // Bulk action handler
@@ -1029,9 +1416,9 @@ export default function StudentTable() {
 
   // Export functionality
   const handleDownloadExcel = (type: 'full' | 'selected') => {
-    const dataToExport = type === 'full' ? searchedStudents : 
+    const dataToExport = type === 'full' ? searchedStudents :
       students.filter(student => selectedStudents.has(student.id));
-    
+
     if (dataToExport.length === 0) {
       alert('No data to export');
       return;
@@ -1056,41 +1443,18 @@ export default function StudentTable() {
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `students_${type}_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    if (document.body) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `students_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      if (document.body.contains(a)) {
+        document.body.removeChild(a);
+      }
+    }
   };
-
-  // Click outside handlers
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showExportDropdown && !(event.target as Element).closest('.export-dropdown')) {
-        setShowExportDropdown(false);
-      }
-      if (showFilterDropdown && !(event.target as Element).closest('.filter-dropdown')) {
-        setShowFilterDropdown(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowExportDropdown(false);
-        setShowFilterDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showExportDropdown, showFilterDropdown]);
 
   if (loading) {
     return (
@@ -1116,39 +1480,39 @@ export default function StudentTable() {
   }> = ({ student, onSave, onCancel }) => {
     // Get the current student data from the state to ensure we have the latest documents
     const currentStudent = students.find(s => s.id === student.id) || student;
-    
-      const [formData, setFormData] = useState({
-    regNo: currentStudent.regNo || '',
-    name: currentStudent.name || '',
-    email: currentStudent.email || '',
-    phone: currentStudent.phone || '',
-    course: currentStudent.course || '',
-    country: currentStudent.country || '',
-    source: currentStudent.source || '',
-    notes: currentStudent.notes || '',
-    birthdate: currentStudent.birthdate || '',
-    startDate: currentStudent.startDate || '',
-    endDate: currentStudent.endDate || '',
-    enrollmentStatus: currentStudent.enrollmentStatus || 'Active',
-    applicationStatus: currentStudent.applicationStatus || ''
-  });
+
+    const [formData, setFormData] = useState({
+      regNo: currentStudent.regNo || '',
+      name: currentStudent.name || '',
+      email: currentStudent.email || '',
+      phone: currentStudent.phone || '',
+      course: currentStudent.course || '',
+      country: currentStudent.country || '',
+      source: currentStudent.source || '',
+      notes: currentStudent.notes || '',
+      birthdate: currentStudent.birthdate || '',
+      startDate: currentStudent.startDate || '',
+      endDate: currentStudent.endDate || '',
+      enrollmentStatus: currentStudent.enrollmentStatus || 'Active',
+      applicationStatus: currentStudent.applicationStatus || ''
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       // Validate required fields
       if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
         alert('Please fill in all required fields (Name, Email, Phone)');
         return;
       }
-      
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         alert('Please enter a valid email address');
         return;
       }
-      
+
       try {
         // Update the student in the backend
         const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${student.id}`, {
@@ -1174,17 +1538,17 @@ export default function StudentTable() {
             }
           }),
         });
-        
+
         if (response.ok) {
           // Update local state
           const updatedStudent = await response.json();
-          const updatedStudents = students.map(s => 
-            s.id === student.id 
+          const updatedStudents = students.map(s =>
+            s.id === student.id
               ? { ...s, ...formData, id: s.id }
               : s
           );
           setStudents(updatedStudents);
-          
+
           alert('Student updated successfully!');
           onSave(formData);
         } else {
@@ -1274,7 +1638,7 @@ export default function StudentTable() {
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Personal Info</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="regNo" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Registration No</Label>
@@ -1348,7 +1712,7 @@ export default function StudentTable() {
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Academic Details</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="enrollmentStatus" className="text-gray-700 font-medium text-xs">Enrollment Status</Label>
@@ -1395,7 +1759,7 @@ export default function StudentTable() {
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Course</h4>
               </div>
-              
+
               <Select
                 options={courseOptions}
                 value={formData.course}
@@ -1414,7 +1778,7 @@ export default function StudentTable() {
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Important Dates</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="startDate" className="text-gray-700 font-medium text-xs">Start Date</Label>
@@ -1456,7 +1820,7 @@ export default function StudentTable() {
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Notes & Comments</h4>
               </div>
-              
+
               <div className="space-y-2">
                 <div>
                   <Label htmlFor="notes" className="text-gray-700 font-medium text-xs">General Notes</Label>
@@ -1515,7 +1879,7 @@ export default function StudentTable() {
               </label>
             </div>
           </div>
-          
+
           <div className="mt-1">
             {(() => {
               console.log('🔍 Debug: currentStudent in edit form:', currentStudent);
@@ -1523,7 +1887,7 @@ export default function StudentTable() {
               console.log('🔍 Debug: currentStudent.Documents:', currentStudent.Documents);
               console.log('🔍 Debug: documents length:', currentStudent.documents?.length || 0);
               console.log('🔍 Debug: Documents length:', currentStudent.Documents?.length || 0);
-              
+
               // Try to find documents in different possible locations
               const allPossibleDocs = [
                 currentStudent.documents,
@@ -1533,9 +1897,9 @@ export default function StudentTable() {
                 (currentStudent as any).attributes?.documents?.data,
                 (currentStudent as any).attributes?.Documents?.data
               ];
-              
+
               console.log('🔍 Debug: All possible document locations:', allPossibleDocs);
-              
+
               // Find the first non-empty documents array
               let actualDocs = null;
               for (const docArray of allPossibleDocs) {
@@ -1545,17 +1909,17 @@ export default function StudentTable() {
                   break;
                 }
               }
-              
+
               if (actualDocs) {
                 console.log('🔍 Debug: Actual documents found:', actualDocs);
                 console.log('🔍 Debug: First document structure:', actualDocs[0]);
               } else {
                 console.log('🔍 Debug: No documents found in any location');
               }
-              
+
               return null;
             })()}
-            
+
             {/* Show documents if they exist in any format */}
             {(() => {
               // Try multiple possible document locations
@@ -1565,11 +1929,11 @@ export default function StudentTable() {
               const docs4 = (currentStudent as any).attributes?.Documents || [];
               const docs5 = (currentStudent as any).attributes?.documents?.data || [];
               const docs6 = (currentStudent as any).attributes?.Documents?.data || [];
-              
+
               // Combine all possible document arrays and deduplicate by ID
               const allDocs = [...docs1, ...docs2, ...docs3, ...docs4, ...docs5, ...docs6];
               console.log('🔍 Debug: Combined all possible documents:', allDocs);
-              
+
               // Deduplicate documents by ID to prevent duplicates
               const uniqueDocs = allDocs.filter((doc, index, self) => {
                 if (!doc) return false;
@@ -1577,12 +1941,12 @@ export default function StudentTable() {
                 const firstIndex = self.findIndex(d => (d?.id || `temp-${self.indexOf(d)}`) === docId);
                 return firstIndex === index;
               });
-              
+
               console.log('🔍 Debug: Unique documents after deduplication:', uniqueDocs);
-              
+
               if (uniqueDocs.length > 0) {
                 return (
-              <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {uniqueDocs
                       .filter(doc => {
                         console.log('🔍 Debug: Processing doc in unique array:', doc);
@@ -1591,73 +1955,73 @@ export default function StudentTable() {
                       })
                       .map((doc, index) => {
                         console.log('🔍 Debug: Rendering doc:', doc, 'at index:', index);
-                        
+
                         // Try to get document info from multiple possible locations
                         const docName = doc.attributes?.Name || doc.attributes?.name || doc.name || doc.Name || `Document ${index + 1}`;
                         const docMime = doc.attributes?.mime || doc.mime || 'application/octet-stream';
                         const docSize = doc.attributes?.size || doc.size || 0;
                         const docUrl = doc.attributes?.url || doc.url || '';
-                        
+
                         // Create a truly unique key using multiple identifiers
                         const uniqueKey = `doc-${doc.id || 'no-id'}-${doc.hash || 'no-hash'}-${index}-${Date.now()}`;
-                        
+
                         return (
-                                <div key={uniqueKey} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 group">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div key={uniqueKey} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 group">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
                               <span className="text-xl">{getFileIcon(docMime)}</span>
-                        <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate group-hover:text-gray-700 dark:group-hover:text-gray-200">{docName}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-600 dark:group-hover:text-gray-300">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-600 dark:group-hover:text-gray-300">
                                   {formatFileSize(docSize)} • {docMime}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleViewDocument(doc)}
-                          className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-105"
-                          title="View document"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadDocument(doc)}
-                          className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 hover:scale-105"
-                          title="Download document"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleViewDocument(doc)}
+                                className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-105"
+                                title="View document"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadDocument(doc)}
+                                className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 hover:scale-105"
+                                title="Download document"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(doc.id, currentStudent.id)}
-                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-105"
-                          title="Delete document"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDocument(doc.id, currentStudent.id)}
+                                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-105"
+                                title="Delete document"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         );
                       })}
-              </div>
+                  </div>
                 );
               } else {
                 return (
-              <div className="text-center py-3 text-gray-500">
-                <svg className="mx-auto h-6 w-6 text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-xs">No documents uploaded yet</p>
-              </div>
+                  <div className="text-center py-3 text-gray-500">
+                    <svg className="mx-auto h-6 w-6 text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-xs">No documents uploaded yet</p>
+                  </div>
                 );
               }
             })()}
@@ -1719,13 +2083,13 @@ export default function StudentTable() {
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       // Validate required fields
       if (!formData.name.trim() || !formData.email.trim() || !formData.phone?.trim()) {
         alert('Please fill in all required fields (Name, Email, Phone)');
         return;
       }
-      
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
@@ -1742,7 +2106,7 @@ export default function StudentTable() {
 
       // Check if registration number is already in use (if provided)
       if (formData.regNo && formData.regNo.trim()) {
-        const existingStudent = students.find(student => 
+        const existingStudent = students.find(student =>
           student.regNo && student.regNo.toLowerCase() === formData.regNo?.toLowerCase()
         );
         if (existingStudent) {
@@ -1786,7 +2150,7 @@ export default function StudentTable() {
     const handleViewFile = (file: File) => {
       console.log('handleViewFile called with file:', file);
       console.log('Current selectedFiles:', selectedFiles);
-      
+
       // Create a compatible object structure for the existing modal
       // Use the original file object directly without creating new blob URLs
       const fileObject = {
@@ -1803,7 +2167,7 @@ export default function StudentTable() {
         // Store the original file reference
         originalFile: file
       };
-      
+
       console.log('Created fileObject for modal:', fileObject);
       setSelectedDoc(fileObject);
       setIsDocumentModalOpen(true);
@@ -1813,14 +2177,18 @@ export default function StudentTable() {
     const handleDownloadFile = (file: File) => {
       // Create a separate blob URL for download
       const downloadBlobUrl = URL.createObjectURL(file);
-      const link = document.createElement('a');
-      link.href = downloadBlobUrl;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      // Clean up the download blob URL
-      URL.revokeObjectURL(downloadBlobUrl);
+      if (document.body) {
+        const link = document.createElement('a');
+        link.href = downloadBlobUrl;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        // Clean up the download blob URL
+        URL.revokeObjectURL(downloadBlobUrl);
+      }
     };
 
 
@@ -1861,7 +2229,7 @@ export default function StudentTable() {
       { value: "Other", label: "Other" }
     ];
 
-  return (
+    return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
@@ -1891,9 +2259,9 @@ export default function StudentTable() {
                       </div>
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Personal Info</h4>
                     </div>
-                    
+
                     <div className="space-y-1">
-        <div>
+                      <div>
                         <Label htmlFor="regNo" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Registration No</Label>
                         <Input
                           id="regNo"
@@ -1903,8 +2271,8 @@ export default function StudentTable() {
                           placeholder="Enter registration number"
                           className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                         />
-        </div>
-        
+                      </div>
+
                       <div>
                         <Label htmlFor="name" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Name *</Label>
                         <Input
@@ -1965,7 +2333,7 @@ export default function StudentTable() {
                       </div>
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Academic Details</h4>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div>
                         <Label htmlFor="enrollmentStatus" className="text-gray-700 font-medium text-xs">Enrollment Status</Label>
@@ -2014,7 +2382,7 @@ export default function StudentTable() {
                       </div>
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Course</h4>
                     </div>
-                    
+
                     <Select
                       options={courseOptions}
                       value={formData.course}
@@ -2033,7 +2401,7 @@ export default function StudentTable() {
                       </div>
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Important Dates</h4>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div>
                         <Label htmlFor="startDate" className="text-gray-700 font-medium text-xs">Start Date</Label>
@@ -2079,7 +2447,7 @@ export default function StudentTable() {
                       </div>
                       <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Notes & Comments</h4>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <div>
                         <Label htmlFor="notes" className="text-gray-700 font-medium text-xs">General Notes</Label>
@@ -2130,15 +2498,15 @@ export default function StudentTable() {
                     <label
                       htmlFor="document-upload-add"
                       className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md hover:scale-105 border border-blue-600"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
                       Upload Documents
                     </label>
                   </div>
                 </div>
-                
+
                 <div className="mt-1">
                   {/* Display uploaded files */}
                   {selectedFiles.length > 0 ? (
@@ -2149,9 +2517,9 @@ export default function StudentTable() {
                             <span className="text-xl">{getFileIcon(file.type || 'application/octet-stream')}</span>
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold text-gray-900 text-sm truncate group-hover:text-gray-700">{file.name}</p>
-                                                              <p className="text-xs text-gray-500 truncate group-hover:text-gray-600">
-                                  {formatFileSize(file.size)} • {file.type || 'application/octet-stream'}
-                                </p>
+                              <p className="text-xs text-gray-500 truncate group-hover:text-gray-600">
+                                {formatFileSize(file.size)} • {file.type || 'application/octet-stream'}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -2162,14 +2530,14 @@ export default function StudentTable() {
                               className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-105"
                               title="View document"
                             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </button>
-            
+                              </svg>
+                            </button>
+
                             {/* Download Button */}
-                <button
+                            <button
                               type="button"
                               onClick={() => handleDownloadFile(file)}
                               className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 hover:scale-105"
@@ -2178,10 +2546,10 @@ export default function StudentTable() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                               </svg>
-                </button>
-                            
+                            </button>
+
                             {/* Remove Button */}
-                <button
+                            <button
                               type="button"
                               onClick={() => removeFile(index)}
                               className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-105"
@@ -2190,7 +2558,7 @@ export default function StudentTable() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
-                </button>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -2201,14 +2569,14 @@ export default function StudentTable() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <p className="text-xs">No documents uploaded yet</p>
-              </div>
-            )}
+                    </div>
+                  )}
                 </div>
-          </div>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
-            <button
+                <button
                   type="button"
                   onClick={() => {
                     console.log('Current selectedFiles state:', selectedFiles);
@@ -2217,7 +2585,7 @@ export default function StudentTable() {
                   className="bg-yellow-100 text-yellow-700 py-2.5 px-4 rounded-lg hover:bg-yellow-200 transition-all duration-200 font-medium text-xs border border-yellow-300"
                 >
                   Debug Files
-            </button>
+                </button>
                 <button
                   type="button"
                   onClick={onCancel}
@@ -2243,269 +2611,511 @@ export default function StudentTable() {
   };
 
   return (
-    <div className="space-y-6">
-            {/* Header Section - Hidden when AddStudentForm is open */}
-      {!showAddStudentForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Table Header - Controls and Bulk Actions */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              {/* Left side - Table Controls */}
-              <div className="flex items-center gap-3">
-                {/* Column Visibility Dropdown */}
-                <div className="relative column-dropdown">
-                  <button
-                    onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                    <span>Columns</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {/* Column Dropdown Menu */}
-                  {showColumnDropdown && (
-                    <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                      <div className="p-2">
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 px-2">Toggle Columns</h4>
-                        {Object.entries(visibleColumns).map(([column, isVisible]) => (
-                          <label key={column} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isVisible}
-                              onChange={() => toggleColumn(column)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">{column}</span>
-                          </label>
-                        ))}
-                      </div>
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 w-full max-w-full overflow-hidden min-w-0">
+      {/* Table Header - Controls and Bulk Actions */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+        {/* Toolbar Row: Search/Filters on Left, Action Buttons on Right */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* Left side - Columns, Search and Filters */}
+          <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
+            {/* Column Visibility Dropdown */}
+            <div className="relative column-dropdown">
+              <button
+                onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-600/30 text-gray-700 dark:text-gray-300 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span>Columns</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Column Dropdown Menu */}
+              {showColumnDropdown && (
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                  <div className="p-2">
+                    <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Toggle Columns</h4>
+                    {Object.entries(visibleColumns).map(([column, isVisible]) => (
+                      <label key={column} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isVisible}
+                          onChange={() => toggleColumn(column)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{column}</span>
+                      </label>
+                    ))}
+                    {/* Select All Option - At the bottom with blue highlight */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                      <label
+                        onClick={toggleSelectAll}
+                        className="flex items-center gap-2 px-2 py-1.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Object.values(visibleColumns).every(v => v === true)}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Select All</span>
+                      </label>
                     </div>
-                  )}
+                  </div>
                 </div>
-                
-                {/* Search Field and Filters */}
-                <div className="flex items-center gap-2">
+              )}
+            </div>
+
+            {/* Search Field */}
             <input
               type="text"
               placeholder="Search students..."
               value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1); // Reset to first page when searching
-                    }}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-48"
-                  />
-                  
-                  {/* Filter Dropdown */}
-          <div className="relative filter-dropdown">
-            <button
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                      className="px-3 py-2 text-sm bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-              </svg>
-              Filters
-              {getActiveFilterCount() > 0 && (
-                        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
-                  {getActiveFilterCount()}
-                </span>
-              )}
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-            </button>
-                    </div>
-                      </div>
-                    </div>
-                    
-              {/* Right side - Actions */}
-              <div className="flex items-center gap-2">
-                {selectedStudents.size > 0 && (
-                  <span className="text-sm text-gray-600">
-                    {selectedStudents.size} student(s) selected
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3.5 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 w-48 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 shadow-sm"
+            />
+
+            {/* Filter Dropdown */}
+            <div className="relative filter-dropdown" style={{ zIndex: 50 }}>
+              <button
+                ref={filterButtonRef}
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className="px-3.5 py-2 text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-600/30 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                </svg>
+                Filters
+                {getActiveFilterCount() > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
+                    {getActiveFilterCount()}
                   </span>
                 )}
-                
-                {/* Add Student Dropdown */}
-                <div className="relative add-student-dropdown">
-                      <button
-                    onClick={() => setShowAddStudentDropdown(!showAddStudentDropdown)}
-                    className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Add Student</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                      </button>
-                  
-                  {/* Add Student Dropdown Menu */}
-                  {showAddStudentDropdown && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                      <div className="p-2">
-                      <button
-                          onClick={handleAddStudent}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          <span>Add Student</span>
-                      </button>
-                      <button
-                          onClick={handleUploadFromExcel}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                          </svg>
-                          <span>Upload from Excel/CSV</span>
-                        </button>
-                        <button
-                          onClick={downloadTemplate}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                          </svg>
-                          <span>Download CSV Template</span>
-                      </button>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Filter Dropdown Menu - Using Portal to avoid overflow clipping */}
+              {showFilterDropdown && isBodyReady && portalContainerRef.current ? createPortal(
+                <div
+                  data-filter-dropdown
+                  className="fixed w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-[100] max-h-[calc(85vh-150px)] flex flex-col"
+                  style={{
+                    top: `${filterDropdownPosition.top}px`,
+                    left: `${filterDropdownPosition.left}px`
+                  }}
+                >
+                  <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b dark:border-gray-700 pb-2">Advanced Filters</h4>
+
+                    {/* Course Date Range Filter */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Course Date Range</label>
+                        {(startDateFilter || endDateFilter) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Clear state first
+                              setStartDateFilter('');
+                              setEndDateFilter('');
+                              // Force DatePicker remount
+                              setDatePickerResetKey(prev => prev + 1);
+                              // Clear flatpickr instances after a short delay
+                              setTimeout(() => {
+                                if (typeof document !== 'undefined' && document.body) {
+                                  try {
+                                    const startInput = document.getElementById('start-date-filter-student') as HTMLInputElement;
+                                    const endInput = document.getElementById('end-date-filter-student') as HTMLInputElement;
+                                    if (startInput) {
+                                      if ((startInput as any)._flatpickr) {
+                                        try {
+                                          (startInput as any)._flatpickr.clear();
+                                        } catch (e) { }
+                                      }
+                                      startInput.value = '';
+                                    }
+                                    if (endInput) {
+                                      if ((endInput as any)._flatpickr) {
+                                        try {
+                                          (endInput as any)._flatpickr.clear();
+                                        } catch (e) { }
+                                      }
+                                      endInput.value = '';
+                                    }
+                                  } catch (error) {
+                                    // Silently fail if DOM manipulation fails
+                                  }
+                                }
+                              }, 50);
+                              // Clear again after remount
+                              setTimeout(() => {
+                                if (typeof document !== 'undefined' && document.body && isMountedRef.current) {
+                                  try {
+                                    const startInput = document.getElementById('start-date-filter-student') as HTMLInputElement;
+                                    const endInput = document.getElementById('end-date-filter-student') as HTMLInputElement;
+                                    if (startInput && (startInput as any)._flatpickr) {
+                                      try {
+                                        (startInput as any)._flatpickr.clear();
+                                      } catch (e) { }
+                                    }
+                                    if (endInput && (endInput as any)._flatpickr) {
+                                      try {
+                                        (endInput as any)._flatpickr.clear();
+                                      } catch (e) { }
+                                    }
+                                  } catch (error) {
+                                    // Silently fail
+                                  }
+                                }
+                              }, 200);
+                            }}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          >
+                            Clear Dates
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Filter courses active between these dates</p>
+                      <div
+                        className="grid grid-cols-2 gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <div className="relative">
+                          <div
+                            className="relative z-0"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <DatePicker
+                              key={`start-date-${datePickerResetKey}`}
+                              id="start-date-filter-student"
+                              label=""
+                              placeholder="From date"
+                              hideIcon
+                              defaultDate={startDateFilter ? new Date(startDateFilter) : undefined}
+                              showClearButton={!!startDateFilter}
+                              onClear={() => {
+                                setStartDateFilter('');
+                                setDatePickerResetKey(prev => prev + 1);
+                              }}
+                              onChange={(selectedDates, dateStr) => {
+                                if (selectedDates && selectedDates.length > 0) {
+                                  const startDate = selectedDates[0].toISOString().split('T')[0];
+                                  setStartDateFilter(startDate);
+                                } else {
+                                  setStartDateFilter('');
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <div
+                            className="relative z-0"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <DatePicker
+                              key={`end-date-${datePickerResetKey}`}
+                              id="end-date-filter-student"
+                              label=""
+                              placeholder="To date"
+                              hideIcon
+                              defaultDate={endDateFilter ? new Date(endDateFilter) : undefined}
+                              showClearButton={!!endDateFilter}
+                              onClear={() => {
+                                setEndDateFilter('');
+                                setDatePickerResetKey(prev => prev + 1);
+                              }}
+                              onChange={(selectedDates, dateStr) => {
+                                if (selectedDates && selectedDates.length > 0) {
+                                  const endDate = selectedDates[0].toISOString().split('T')[0];
+                                  setEndDateFilter(endDate);
+                                } else {
+                                  setEndDateFilter('');
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enrollment Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Enrollment Status</label>
+                      <select
+                        value={enrollmentStatusFilter}
+                        onChange={(e) => setEnrollmentStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Suspended">Suspended</option>
+                        <option value="Withdrawn">Withdrawn</option>
+                      </select>
+                    </div>
+
+                    {/* Country Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Country</label>
+                      <select
+                        value={countryFilter}
+                        onChange={(e) => setCountryFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">All Countries</option>
+                        {uniqueCountries && uniqueCountries.length > 0 && uniqueCountries.map(country => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Course Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Course</label>
+                      <select
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">All Courses</option>
+                        {uniqueCourses && uniqueCourses.length > 0 && uniqueCourses.map(course => (
+                          <option key={course} value={course}>{course}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  )}
-                  </div>
 
-                {/* Download Excel Dropdown */}
-                <div className="relative export-dropdown">
-                  <button
-                    onClick={() => setShowExportDropdown(!showExportDropdown)}
-                    className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Download Excel
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {/* Export Dropdown Menu */}
-                  {showExportDropdown && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                      <div className="p-2">
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 px-2">Download Options</h4>
+                  {/* Filter Actions - Fixed at bottom */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pb-4 flex-shrink-0">
                     <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleClearAllFilters();
+                        // Close dropdown after a short delay to allow clearing to complete
+                        setTimeout(() => {
+                          setShowFilterDropdown(false);
+                        }, 100);
+                      }}
+                      className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
-                            handleDownloadExcel('full');
-                            setShowExportDropdown(false);
-                          }}
-                          disabled={loading}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${
-                            !loading
-                              ? 'text-gray-700 hover:bg-gray-50'
-                              : 'text-gray-400 cursor-not-allowed'
-                          }`}
-                        >
-                          {loading ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              <span>Processing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l3 3m0 0l3-3m-3 3V10" />
-                              </svg>
-                              <span>Download Full Excel</span>
-                            </>
-                          )}
+                        setShowFilterDropdown(false);
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 text-sm text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors"
+                    >
+                      Apply Filters
                     </button>
-                    <button
-                          onClick={() => {
-                            handleDownloadExcel('selected');
-                            setShowExportDropdown(false);
-                          }}
-                          disabled={selectedStudents.size === 0 || loading}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${
-                            selectedStudents.size > 0 && !loading
-                              ? 'text-gray-700 hover:bg-gray-50'
-                              : 'text-gray-400 cursor-not-allowed'
-                          }`}
-                        >
-                          {loading ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              <span>Processing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                              </svg>
-                              <span>Download Selected ({selectedStudents.size})</span>
-                            </>
-                          )}
-                    </button>
-                </div>
-              </div>
-            )}
+                  </div>
+                </div>,
+                portalContainerRef.current
+              ) : null}
+            </div>
           </div>
 
-                {/* Delete Selected Button */}
-            <button 
-                  onClick={() => handleBulkAction('Delete')}
-                  disabled={selectedStudents.size === 0 || loading}
-                  className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-2 ${
-                    selectedStudents.size > 0 && !loading
-                      ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-                      Delete Selected
-                    </>
+          {/* Right side - Action Buttons and Selected Count */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {selectedStudents.size > 0 && (
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm">
+                {selectedStudents.size} student{selectedStudents.size !== 1 ? 's' : ''} selected
+              </span>
+            )}
+
+            {/* Add Student Dropdown */}
+            <div className="relative add-student-dropdown">
+              <button
+                onClick={() => setShowAddStudentDropdown(!showAddStudentDropdown)}
+                className="px-3.5 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:ring-offset-2 transition-colors flex items-center gap-1.5 shadow-sm"
+                title="Add new student"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span className="hidden md:inline whitespace-nowrap">Add Student</span>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Add Student Dropdown Menu */}
+              {showAddStudentDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                  <div className="p-2">
+                    <button
+                      onClick={handleAddStudent}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <span>Add Student</span>
+                    </button>
+                    <button
+                      onClick={handleUploadFromExcel}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                      </svg>
+                      <span>Upload from Excel/CSV</span>
+                    </button>
+                    <button
+                      onClick={downloadTemplate}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      <span>Download CSV Template</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Download Excel Dropdown */}
+            <div className="relative export-dropdown">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="px-3.5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-2 transition-colors flex items-center gap-1.5 shadow-sm"
+                title="Download Excel"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden md:inline whitespace-nowrap">Download Excel</span>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Export Dropdown Menu */}
+              {showExportDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                  <div className="p-2">
+                    <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Download Options</h4>
+                    <button
+                      onClick={() => {
+                        handleDownloadExcel('full');
+                        setShowExportDropdown(false);
+                      }}
+                      disabled={loading}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${!loading
+                        ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l3 3m0 0l3-3m-3 3V10" />
+                          </svg>
+                          <span>Download Full Excel</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDownloadExcel('selected');
+                        setShowExportDropdown(false);
+                      }}
+                      disabled={selectedStudents.size === 0 || loading}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${selectedStudents.size > 0 && !loading
+                        ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          <span>Download Selected ({selectedStudents.size})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Delete Selected Button */}
+            <button
+              onClick={() => handleBulkAction('Delete')}
+              disabled={selectedStudents.size === 0 || loading}
+              className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm ${selectedStudents.size > 0 && !loading
+                ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/30'
+                : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                }`}
+              title={selectedStudents.size > 0 ? `Delete ${selectedStudents.size} selected student(s)` : 'No students selected'}
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="hidden md:inline whitespace-nowrap">Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span className="hidden md:inline whitespace-nowrap">Delete Selected</span>
+                  {selectedStudents.size > 0 && (
+                    <span className="md:hidden">({selectedStudents.size})</span>
                   )}
+                </>
+              )}
             </button>
-              </div>
           </div>
         </div>
       </div>
-      )}
 
 
 
 
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+      <div className="overflow-x-auto w-full min-w-0">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 w-full">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               {/* Select All Checkbox */}
@@ -2514,14 +3124,14 @@ export default function StudentTable() {
                   type="checkbox"
                   checked={selectAll}
                   onChange={handleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 w-4 h-4 cursor-pointer"
                 />
               </th>
-              
+
               {/* Individual Columns */}
               {visibleColumns.regNo && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('regNo')}
                 >
                   <div className="flex items-center gap-1">
@@ -2530,10 +3140,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Name && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center gap-1">
@@ -2542,10 +3152,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Email && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('email')}
                 >
                   <div className="flex items-center gap-1">
@@ -2554,10 +3164,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Phone && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('phone')}
                 >
                   <div className="flex items-center gap-1">
@@ -2566,10 +3176,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Course && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('course')}
                 >
                   <div className="flex items-center gap-1">
@@ -2578,10 +3188,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Country && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('country')}
                 >
                   <div className="flex items-center gap-1">
@@ -2590,10 +3200,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.EnrollmentStatus && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('enrollmentStatus')}
                 >
                   <div className="flex items-center gap-1">
@@ -2602,10 +3212,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.StartDate && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('startDate')}
                 >
                   <div className="flex items-center gap-1">
@@ -2614,10 +3224,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.EndDate && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSort('endDate')}
                 >
                   <div className="flex items-center gap-1">
@@ -2626,10 +3236,10 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Notes && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-80"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 w-80"
                   onClick={() => handleSort('notes')}
                 >
                   <div className="flex items-center gap-1">
@@ -2638,13 +3248,13 @@ export default function StudentTable() {
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Documents && (
                 <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Documents
                 </th>
               )}
-              
+
               {visibleColumns.Actions && (
                 <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
@@ -2653,49 +3263,62 @@ export default function StudentTable() {
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-            {sortedStudents.length === 0 ? (
+            {currentStudents.length === 0 ? (
               <tr>
                 <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                   <div className="flex flex-col items-center">
-                    {searchTerm ? (
-                      <>
-                        <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <p className="text-lg font-medium text-gray-900 mb-2">No search results found</p>
-                        <p className="text-sm text-gray-500">Try adjusting your search terms or clear the search</p>
-                        <button
-                          onClick={() => {
-                            setSearchTerm('');
-                            setCurrentPage(1);
-                          }}
-                          className="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                        >
-                          Clear Search
-                        </button>
-                      </>
+                    {searchedStudents.length === 0 ? (
+                      searchTerm || enrollmentStatusFilter || countryFilter || courseFilter || startDateFilter || endDateFilter ? (
+                        <>
+                          <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No students match your filters</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Try adjusting your filters or clear them to see all students</p>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSearchTerm('');
+                              handleClearAllFilters();
+                            }}
+                            className="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                          >
+                            Clear All Filters
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No students found</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Get started by adding your first student</p>
+                        </>
+                      )
                     ) : (
                       <>
-                        <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <p className="text-lg font-medium text-gray-900 mb-2">No students found</p>
-                        <p className="text-sm text-gray-500">Get started by adding your first student</p>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No students on this page</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Showing page {currentPage} of {totalPages}</p>
                       </>
                     )}
                   </div>
                 </td>
               </tr>
             ) : (
-              sortedStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50 transition-colors duration-150">
+              currentStudents.map((student) => (
+                <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
                   {/* Select Checkbox */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selectedStudents.has(student.id)}
                       onChange={() => handleRowSelect(student.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 w-4 h-4 cursor-pointer"
                     />
                   </td>
 
@@ -2709,7 +3332,7 @@ export default function StudentTable() {
                   {/* Name Column */}
                   {visibleColumns.Name && (
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 break-words max-w-[150px]">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white break-words max-w-[150px]">
                         {student.name || 'Unknown'}
                       </div>
                     </td>
@@ -2732,7 +3355,7 @@ export default function StudentTable() {
                   {/* Course Column */}
                   {visibleColumns.Course && (
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 break-words max-w-[120px]">
+                      <div className="text-sm text-gray-900 dark:text-white break-words max-w-[120px]">
                         {student.course || 'No course'}
                       </div>
                     </td>
@@ -2770,7 +3393,7 @@ export default function StudentTable() {
 
                   {/* Notes Column */}
                   {visibleColumns.Notes && (
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 w-80">
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white w-80">
                       <div className="whitespace-pre-wrap break-words">
                         {student.notes || "No notes"}
                       </div>
@@ -2804,7 +3427,7 @@ export default function StudentTable() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                       </svg>
                                     </button>
-                                    
+
                                     {/* Download Button */}
                                     <button
                                       onClick={() => handleDownloadDocument(doc)}
@@ -2815,7 +3438,7 @@ export default function StudentTable() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                                       </svg>
                                     </button>
-                                    
+
                                     {/* Delete Button */}
                                     <button
                                       onClick={() => handleDeleteDocument(doc.id, student.id)}
@@ -2833,7 +3456,7 @@ export default function StudentTable() {
                         ) : (
                           <span className="text-gray-500 text-xs">No documents</span>
                         )}
-                        
+
 
                       </div>
                     </td>
@@ -2853,7 +3476,7 @@ export default function StudentTable() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                        
+
                         {/* Delete Button - Bin Icon */}
                         <button
                           onClick={() => handleDeleteStudent(student)}
@@ -2876,48 +3499,50 @@ export default function StudentTable() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing {indexOfFirstStudent + 1} to {Math.min(indexOfLastStudent, searchedStudents.length)} of {searchedStudents.length} students
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="px-3 py-2 text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              Showing {indexOfFirstStudent + 1} to {Math.min(indexOfLastStudent, searchedStudents.length)} of {searchedStudents.length} students
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Delete Selected Button */}
-      {selectedStudents.size > 0 && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => {
-              if (window.confirm(`Are you sure you want to delete ${selectedStudents.size} selected students?`)) {
-                // Handle bulk delete
-                console.log('Bulk delete selected students:', Array.from(selectedStudents));
-              }
-            }}
-            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Delete Selected ({selectedStudents.size})
-          </button>
+      {/* Table Footer */}
+      <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
+            Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+            {selectedStudents.size > 0 && (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                • {selectedStudents.size} selected
+              </span>
+            )}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Edit Student Form Modal */}
       {isEditFormOpen && currentStudent && (
@@ -2938,7 +3563,7 @@ export default function StudentTable() {
                   </svg>
                 </button>
               </div>
-              
+
               <EditStudentForm
                 student={currentStudent}
                 onSave={(data) => {
@@ -2963,46 +3588,46 @@ export default function StudentTable() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                    <span className="text-2xl">{getFileIcon(selectedDoc.attributes?.mime || selectedDoc.mime)}</span>
+                  <span className="text-2xl">{getFileIcon(selectedDoc.attributes?.mime || selectedDoc.mime)}</span>
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">
-                        {selectedDoc.attributes?.Name || selectedDoc.name || 'Document'}
+                      {selectedDoc.attributes?.Name || selectedDoc.name || 'Document'}
                     </h2>
                     <p className="text-sm text-gray-500">
-                        {formatFileSize(selectedDoc.attributes?.size || selectedDoc.size)} • {selectedDoc.attributes?.mime || selectedDoc.mime || 'Unknown type'}
+                      {formatFileSize(selectedDoc.attributes?.size || selectedDoc.size)} • {selectedDoc.attributes?.mime || selectedDoc.mime || 'Unknown type'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Download Button */}
+                  {/* Download Button */}
                   <button
-                      onClick={() => handleDownloadDocument(selectedDoc)}
-                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-colors"
-                      title="Download document"
+                    onClick={() => handleDownloadDocument(selectedDoc)}
+                    className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-colors"
+                    title="Download document"
                   >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
                   </button>
-                    
-                    {/* Open in New Tab Button */}
+
+                  {/* Open in New Tab Button */}
                   <button
-                      onClick={() => handleOpenDocument(selectedDoc)}
-                      className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-lg transition-colors"
-                      title="Open in new tab"
+                    onClick={() => handleOpenDocument(selectedDoc)}
+                    className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-lg transition-colors"
+                    title="Open in new tab"
                   >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </button>
-                    
-                    {/* Close Button */}
+
+                  {/* Close Button */}
                   <button
                     onClick={() => {
                       setIsDocumentModalOpen(false);
-                        setSelectedDoc(null);
+                      setSelectedDoc(null);
                     }}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3010,28 +3635,28 @@ export default function StudentTable() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="text-center">
                 {(() => {
                   // Get MIME type from multiple possible locations
                   const mimeType = selectedDoc.attributes?.mime || selectedDoc.mime || selectedDoc.attributes?.MIME || selectedDoc.MIME;
                   const fileName = selectedDoc.attributes?.Name || selectedDoc.name || selectedDoc.attributes?.name || 'Document';
                   const fileUrl = selectedDoc.attributes?.url || selectedDoc.url;
-                  
+
                   console.log('MIME type detection:', { mimeType, fileName, fileUrl });
-                  
+
                   // Check if this is a File object (for add student form) or URL string (for edit form)
                   const isFileObject = fileUrl instanceof File;
-                  
+
                   if (mimeType?.startsWith('image/')) {
                     if (isFileObject) {
                       // For File objects, create a blob URL for display
                       const blobUrl = URL.createObjectURL(fileUrl as File);
-                    return (
-                      <img
+                      return (
+                        <img
                           src={blobUrl}
-                        alt={fileName}
-                        className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg shadow-lg"
+                          alt={fileName}
+                          className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg shadow-lg"
                           onLoad={() => {
                             // Clean up blob URL after image loads
                             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
@@ -3053,11 +3678,11 @@ export default function StudentTable() {
                       // For File objects, create a blob URL for display
                       const blobUrl = URL.createObjectURL(fileUrl as File);
                       console.log('📕 PDF viewer - File object, blob URL:', blobUrl);
-                    return (
-                      <iframe
+                      return (
+                        <iframe
                           src={blobUrl}
-                        className="w-full h-[70vh] border-0 rounded-lg"
-                        title={fileName}
+                          className="w-full h-[70vh] border-0 rounded-lg"
+                          title={fileName}
                           onLoad={() => {
                             console.log('✅ PDF loaded successfully');
                             // Clean up blob URL after iframe loads
@@ -3071,7 +3696,7 @@ export default function StudentTable() {
                     } else {
                       // For URL strings (edit form) - construct proper URL
                       let pdfUrl = '';
-                      
+
                       if (typeof fileUrl === 'string') {
                         if (fileUrl.startsWith('blob:')) {
                           pdfUrl = fileUrl;
@@ -3085,11 +3710,11 @@ export default function StudentTable() {
                           pdfUrl = `${strapiUrl}/${fileUrl}`;
                         }
                       }
-                      
+
                       console.log('📕 PDF viewer - Constructed URL:', pdfUrl);
                       console.log('📕 Original fileUrl:', fileUrl);
                       console.log('📕 File URL type:', typeof fileUrl);
-                      
+
                       return (
                         <div>
                           <iframe
@@ -3109,12 +3734,12 @@ export default function StudentTable() {
                     if (isFileObject) {
                       // For File objects, create a blob URL for display
                       const blobUrl = URL.createObjectURL(fileUrl as File);
-                    return (
-                      <video controls className="w-full h-auto rounded-lg shadow-lg">
+                      return (
+                        <video controls className="w-full h-auto rounded-lg shadow-lg">
                           <source src={blobUrl} type={mimeType} />
-                        Your browser does not support the video tag.
-                      </video>
-                    );
+                          Your browser does not support the video tag.
+                        </video>
+                      );
                     } else {
                       // For URL strings (edit form)
                       return (
@@ -3128,12 +3753,12 @@ export default function StudentTable() {
                     if (isFileObject) {
                       // For File objects, create a blob URL for display
                       const blobUrl = URL.createObjectURL(fileUrl as File);
-                    return (
-                      <audio controls className="w-full">
+                      return (
+                        <audio controls className="w-full">
                           <source src={blobUrl} type={mimeType} />
-                        Your browser does not support the audio tag.
-                      </audio>
-                    );
+                          Your browser does not support the audio tag.
+                        </audio>
+                      );
                     } else {
                       // For URL strings (edit form)
                       return (

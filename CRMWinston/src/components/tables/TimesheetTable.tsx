@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useEditForm } from "@/context/EditFormContext";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Select from "../form/Select";
 import DatePicker from "../form/date-picker";
+import TimePicker from "../form/TimePicker";
 import { API_CONFIG } from "../../config/api";
 import { realBackendAuthService } from "../../services/realBackendAuthService";
 import { useAuth } from "../../context/AuthContext";
+import TimesheetCalendar from "./TimesheetCalendar";
 
 // Timesheet interface
-interface Timesheet {
+export interface Timesheet {
   id: number;
   documentId: string;
   date: string;
@@ -19,7 +20,8 @@ interface Timesheet {
   endTime: string | null;
   totalHours?: number; // Optional - hidden for non-admins
   notes: string;
-  location: "Office" | "Remote";
+  noteToAdmin?: string;
+  location: "Office" | "Work from Home";
   employee: {
     id: number;
     username: string;
@@ -37,7 +39,8 @@ interface CreateTimesheetData {
   startTime: string;
   endTime: string;
   notes: string;
-  location: "Office" | "Remote";
+  noteToAdmin?: string;
+  location: "Office" | "Work from Home";
   employee?: number; // Optional - only for admins
 }
 
@@ -58,19 +61,19 @@ const formatTime = (timeString: string | undefined) => {
 
 const formatTotalHours = (totalHours: number | undefined): string => {
   if (totalHours === undefined || totalHours === null) return "0 min";
-  
+
   // Convert hours to minutes
   const totalMinutes = Math.round(totalHours * 60);
-  
+
   // If less than 60 minutes, show as minutes
   if (totalMinutes < 60) {
     return `${totalMinutes} min`;
   }
-  
+
   // If 60 minutes or more, show as hours and minutes
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
+
   if (minutes === 0) {
     return `${hours} hr${hours !== 1 ? 's' : ''}`;
   } else {
@@ -83,6 +86,8 @@ const getLocationColor = (location: string | undefined) => {
   switch (location) {
     case "Office":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
+    case "Work from Home":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400";
     case "Remote":
       return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
     default:
@@ -91,16 +96,17 @@ const getLocationColor = (location: string | undefined) => {
 };
 
 export default function TimesheetTable() {
-  const { isEditFormOpen, setIsEditFormOpen, isAddLeadFormOpen, setIsAddLeadFormOpen } = useEditForm();
+  // Removed unused useEditForm
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.userRole === 'admin';
-  
+
   // State variables
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTimesheet, setCurrentTimesheet] = useState<Timesheet | null>(null);
   const [showAddTimesheetForm, setShowAddTimesheetForm] = useState(false);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [selectedTimesheets, setSelectedTimesheets] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,22 +120,41 @@ export default function TimesheetTable() {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [locationFilter, setLocationFilter] = useState('');
   const [employeeFilter, setEmployeeFilter] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'weekly' | 'monthly'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [allUsers, setAllUsers] = useState<Array<{ id: number; username: string; email: string; firstName?: string; lastName?: string }>>([]);
   const [selectedEmployeeForAggregation, setSelectedEmployeeForAggregation] = useState<number | null>(null);
-  const [aggregatedHours, setAggregatedHours] = useState<number>(0);
-  const [allUsers, setAllUsers] = useState<Array<{id: number; username: string; email: string; firstName?: string; lastName?: string}>>([]);
 
-  // Column visibility - hide totalHours and actions for non-admins
-  const [visibleColumns, setVisibleColumns] = useState({
+  // Add Form State
+  const [addFormData, setAddFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    startTime: '',
+    endTime: '',
+    notes: '',
+    location: 'Office' as 'Office' | 'Work from Home',
+    employee: ''
+  });
+
+  // Clock-in/out modal state
+  const [showClockInModal, setShowClockInModal] = useState(false);
+  const [showClockOutModal, setShowClockOutModal] = useState(false);
+  const [clockInLocation, setClockInLocation] = useState<"Office" | "Work from Home">("Office");
+  const [clockOutNotes, setClockOutNotes] = useState('');
+  const [clockOutNoteToAdmin, setClockOutNoteToAdmin] = useState('');
+  const [editingNoteToAdmin, setEditingNoteToAdmin] = useState<number | null>(null);
+  const [editNoteToAdminText, setEditNoteToAdminText] = useState('');
+
+  // Column visibility
+  const [visibleColumns] = useState({
     employee: true,
     date: true,
     startTime: true,
     endTime: true,
-    totalHours: isAdmin, // Hide for non-admins
+    totalHours: isAdmin,
     workRole: true,
     notes: true,
+    noteToAdmin: true,
     location: true,
-    actions: isAdmin, // Hide for non-admins
+    actions: isAdmin,
   });
 
   // Fetch timesheets on component mount
@@ -140,7 +165,7 @@ export default function TimesheetTable() {
     }
   }, [isAdmin]);
 
-  // Fetch users when edit form opens (in case they weren't loaded)
+  // Fetch users when edit form opens
   useEffect(() => {
     if (isEditFormOpen && isAdmin && allUsers.length === 0) {
       fetchAllUsers();
@@ -182,7 +207,7 @@ export default function TimesheetTable() {
       if (showExportDropdown && !(event.target as Element).closest('.export-dropdown')) {
         setShowExportDropdown(false);
       }
-      if (showFilterDropdown && !(event.target as Element).closest('.filter-dropdown')) {
+      if (showFilterDropdown && !(event.target as Element).closest('.filter-dropdown') && !(event.target as Element).closest('.flatpickr-calendar')) {
         setShowFilterDropdown(false);
       }
     };
@@ -190,7 +215,7 @@ export default function TimesheetTable() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showColumnDropdown, showAddTimesheetDropdown, showExportDropdown, showFilterDropdown]);
-  
+
   // Close dropdowns when pressing Escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -210,7 +235,7 @@ export default function TimesheetTable() {
     try {
       setLoading(true);
       const token = realBackendAuthService.getCurrentToken();
-      
+
       if (!token) {
         setError('Authentication required. Please log in again.');
         setLoading(false);
@@ -256,25 +281,32 @@ export default function TimesheetTable() {
     if (!timesheets || timesheets.length === 0) {
       return [];
     }
-    
+
     return timesheets.filter(timesheet => {
       if (!timesheet) return false;
-      
-      const employeeName = timesheet.employee 
+
+      const employeeName = timesheet.employee
         ? `${timesheet.employee.firstName || ''} ${timesheet.employee.lastName || ''} ${timesheet.employee.username || ''} ${timesheet.employee.email || ''}`.toLowerCase()
         : '';
-      
-      const matchesSearch = !searchTerm || 
+
+      const matchesSearch = !searchTerm ||
         employeeName.includes(searchTerm.toLowerCase()) ||
         timesheet.employee?.workRole?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         timesheet.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         timesheet.date?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesLocation = !locationFilter || timesheet.location === locationFilter;
       const matchesEmployee = !employeeFilter || timesheet.employee?.id.toString() === employeeFilter;
-      
-      const matchesDateRange = !dateRange.start || !dateRange.end || 
-        (timesheet.date >= dateRange.start && timesheet.date <= dateRange.end);
+
+      // Date range filter - works with start only, end only, or both
+      let matchesDateRange = true;
+      if (dateRange.start && dateRange.end) {
+        matchesDateRange = timesheet.date >= dateRange.start && timesheet.date <= dateRange.end;
+      } else if (dateRange.start) {
+        matchesDateRange = timesheet.date >= dateRange.start;
+      } else if (dateRange.end) {
+        matchesDateRange = timesheet.date <= dateRange.end;
+      }
 
       return matchesSearch && matchesLocation && matchesEmployee && matchesDateRange;
     });
@@ -290,8 +322,8 @@ export default function TimesheetTable() {
   // Pagination
   const indexOfLastTimesheet = currentPage * timesheetsPerPage;
   const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage;
-  const currentTimesheets = searchedTimesheets && searchedTimesheets.length > 0 
-    ? searchedTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet) 
+  const currentTimesheets = searchedTimesheets && searchedTimesheets.length > 0
+    ? searchedTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
     : [];
   const totalPages = Math.ceil((searchedTimesheets?.length || 0) / timesheetsPerPage);
 
@@ -309,25 +341,25 @@ export default function TimesheetTable() {
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
-  const sortedTimesheets = currentTimesheets && currentTimesheets.length > 0 
+  const sortedTimesheets = currentTimesheets && currentTimesheets.length > 0
     ? [...currentTimesheets].sort((a, b) => {
-        if (!sortConfig || !a || !b) return 0;
-        
-        let aValue: any = a[sortConfig.key];
-        let bValue: any = b[sortConfig.key];
-        
-        // Handle nested employee field
-        if (sortConfig.key === 'employee' && a.employee && b.employee) {
-          aValue = `${a.employee.firstName || ''} ${a.employee.lastName || ''} ${a.employee.username || ''}`;
-          bValue = `${b.employee.firstName || ''} ${b.employee.lastName || ''} ${b.employee.username || ''}`;
-        }
-        
-        if (aValue && bValue) {
-          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      }) 
+      if (!sortConfig || !a || !b) return 0;
+
+      let aValue: any = a[sortConfig.key];
+      let bValue: any = b[sortConfig.key];
+
+      // Handle nested employee field
+      if (sortConfig.key === 'employee' && a.employee && b.employee) {
+        aValue = `${a.employee.firstName || ''} ${a.employee.lastName || ''} ${a.employee.username || ''}`;
+        bValue = `${b.employee.firstName || ''} ${b.employee.lastName || ''} ${b.employee.username || ''}`;
+      }
+
+      if (aValue && bValue) {
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    })
     : [];
 
   // Row selection
@@ -401,70 +433,80 @@ export default function TimesheetTable() {
     const today = new Date().toISOString().split('T')[0];
     return timesheets.find(t => {
       const timesheetDate = t.date ? new Date(t.date).toISOString().split('T')[0] : null;
-      return timesheetDate === today && 
-             t.employee?.id === user.id && 
-             t.startTime && 
-             !t.endTime;
+      return timesheetDate === today &&
+        t.employee?.id === user.id &&
+        t.startTime &&
+        !t.endTime;
+    });
+  };
+
+  // Check if user already completed today (once-per-day)
+  const getCompletedTodayTimesheet = () => {
+    if (!user?.id) return null;
+    const today = new Date().toISOString().split('T')[0];
+    return timesheets.find(t => {
+      const timesheetDate = t.date ? new Date(t.date).toISOString().split('T')[0] : null;
+      return timesheetDate === today &&
+        t.employee?.id === user.id &&
+        t.startTime &&
+        !!t.endTime;
     });
   };
 
   const todayTimesheet = getTodayTimesheet();
+  const completedTodayTimesheet = getCompletedTodayTimesheet();
   const isClockedIn = !!todayTimesheet;
+  const hasClockedOutToday = !!completedTodayTimesheet;
 
-  // Clock In handler
-  const handleClockIn = async () => {
+  // Clock In - open modal to select location
+  const handleClockIn = () => {
+    setClockInLocation("Office");
+    setShowClockInModal(true);
+  };
+
+  // Clock In submit - sends request with selected location
+  const handleClockInSubmit = async () => {
     try {
-      // Check if user is authenticated
       if (!realBackendAuthService.isAuthenticated()) {
         alert('You are not logged in. Please log in again.');
         window.location.href = '/login';
         return;
       }
-      
+
       let token = realBackendAuthService.getCurrentToken();
-      
-      // If no token in memory, try to get from localStorage
+
       if (!token && typeof window !== 'undefined') {
         token = localStorage.getItem('real_backend_token');
-        // Also try to refresh user data to get a new token if needed
         if (token) {
           try {
             await realBackendAuthService.refreshUser();
             token = realBackendAuthService.getCurrentToken() || token;
-          } catch (refreshError) {
+          } catch {
             console.warn('Could not refresh user, using existing token');
           }
         }
       }
-      
+
       if (!token) {
         alert('Authentication required. Please log in again.');
         window.location.href = '/login';
         return;
       }
-      
-      console.log('🔐 Clock In - Using token:', token ? `${token.substring(0, 30)}...` : 'No token');
-      console.log('🔐 Clock In - Token length:', token ? token.length : 0);
 
-      console.log('🔐 Clock In - Sending request to:', `${API_CONFIG.STRAPI_URL}/api/timesheets/clock-in`);
-      
-      // Check if backend is reachable first
+      // Health check
       try {
         const healthCheck = await fetch(`${API_CONFIG.STRAPI_URL}/api/users/me`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!healthCheck.ok && healthCheck.status !== 401) {
           console.warn('⚠️ Backend health check failed, but continuing...');
         }
-      } catch (healthError) {
-        console.error('❌ Backend health check failed:', healthError);
-        alert('Cannot connect to backend server. Please make sure Strapi is running and restart it if needed.');
+      } catch {
+        alert('Cannot connect to backend server. Please make sure Strapi is running.');
         return;
       }
-      
+
       let response;
       try {
         response = await fetch(`${API_CONFIG.STRAPI_URL}/api/timesheets/clock-in`, {
@@ -475,43 +517,27 @@ export default function TimesheetTable() {
           },
           body: JSON.stringify({
             data: {
-              location: 'Office',
-              notes: 'Clocked in'
+              location: clockInLocation,
+              notes: ''
             }
           }),
         });
       } catch (fetchError) {
         console.error('❌ Clock In - Network error:', fetchError);
-        if (fetchError instanceof TypeError && fetchError.message === 'Failed to fetch') {
-          alert('Cannot connect to backend server. Please make sure Strapi is running on http://localhost:1337');
-        } else {
-          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown network error';
-          alert('Network error: ' + errorMessage);
-        }
+        alert('Cannot connect to backend server.');
         return;
       }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Clock in failed:', errorText);
         try {
           const errorData = JSON.parse(errorText);
           if (errorData.error?.message) {
-            const errorMsg = errorData.error.message;
-            
-            // If token is invalid/expired, redirect to login
-            if (errorMsg.includes('expired') || errorMsg.includes('Invalid') || errorMsg.includes('token')) {
-              alert('Your session has expired. Please log in again.');
-              realBackendAuthService.logout();
-              window.location.href = '/login';
-              return;
-            }
-            
-            alert(`Failed to clock in: ${errorMsg}`);
+            alert(`Failed to clock in: ${errorData.error.message}`);
           } else {
             alert('Failed to clock in. Please try again.');
           }
-        } catch (parseError) {
+        } catch {
           alert('Failed to clock in. Please try again.');
         }
         return;
@@ -519,20 +545,17 @@ export default function TimesheetTable() {
 
       const result = await response.json();
       const newTimesheet = result.data || result;
-      
-      // Add the new timesheet to the list
+
       setTimesheets(prev => {
-        // Check if it already exists (avoid duplicates)
         const exists = prev.some(t => t.id === newTimesheet.id);
         if (exists) {
           return prev.map(t => t.id === newTimesheet.id ? newTimesheet : t);
         }
         return [...prev, newTimesheet];
       });
-      
+
+      setShowClockInModal(false);
       alert('Clocked in successfully!');
-      
-      // Refresh the list to ensure we have the latest data
       await fetchTimesheets();
     } catch (error) {
       console.error('Error clocking in:', error);
@@ -540,31 +563,35 @@ export default function TimesheetTable() {
     }
   };
 
-  // Clock Out handler
-  const handleClockOut = async () => {
+  // Clock Out - open modal to write notes
+  const handleClockOut = () => {
+    setClockOutNotes('');
+    setClockOutNoteToAdmin('');
+    setShowClockOutModal(true);
+  };
+
+  // Clock Out submit - sends request with notes
+  const handleClockOutSubmit = async () => {
+    if (!clockOutNotes.trim()) {
+      alert('Please describe what you worked on today.');
+      return;
+    }
+
     try {
-      // Check if user is authenticated
       if (!realBackendAuthService.isAuthenticated()) {
         alert('You are not logged in. Please log in again.');
         return;
       }
-      
+
       let token = realBackendAuthService.getCurrentToken();
-      
-      // If no token in memory, try to get from localStorage
       if (!token && typeof window !== 'undefined') {
         token = localStorage.getItem('real_backend_token');
       }
-      
       if (!token) {
         alert('Authentication required. Please log in again.');
         return;
       }
-      
-      console.log('🔐 Clock Out - Using token:', token ? `${token.substring(0, 30)}...` : 'No token');
 
-      console.log('🔐 Clock Out - Sending request to:', `${API_CONFIG.STRAPI_URL}/api/timesheets/clock-out`);
-      
       let response;
       try {
         response = await fetch(`${API_CONFIG.STRAPI_URL}/api/timesheets/clock-out`, {
@@ -574,41 +601,28 @@ export default function TimesheetTable() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            data: {}
+            data: {
+              notes: clockOutNotes,
+              noteToAdmin: clockOutNoteToAdmin || undefined,
+            }
           }),
         });
       } catch (fetchError) {
         console.error('❌ Clock Out - Network error:', fetchError);
-        if (fetchError instanceof TypeError && fetchError.message === 'Failed to fetch') {
-          alert('Cannot connect to backend server. Please make sure Strapi is running on http://localhost:1337');
-        } else {
-          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown network error';
-          alert('Network error: ' + errorMessage);
-        }
+        alert('Cannot connect to backend server.');
         return;
       }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Clock out failed:', errorText);
         try {
           const errorData = JSON.parse(errorText);
           if (errorData.error?.message) {
-            const errorMsg = errorData.error.message;
-            
-            // If token is invalid/expired, redirect to login
-            if (errorMsg.includes('expired') || errorMsg.includes('Invalid') || errorMsg.includes('token')) {
-              alert('Your session has expired. Please log in again.');
-              realBackendAuthService.logout();
-              window.location.href = '/login';
-              return;
-            }
-            
-            alert(`Failed to clock out: ${errorMsg}`);
+            alert(`Failed to clock out: ${errorData.error.message}`);
           } else {
             alert('Failed to clock out. Please try again.');
           }
-        } catch (parseError) {
+        } catch {
           alert('Failed to clock out. Please try again.');
         }
         return;
@@ -616,13 +630,10 @@ export default function TimesheetTable() {
 
       const result = await response.json();
       const updatedTimesheet = result.data || result;
-      
-      // Update the timesheet in the list
+
       setTimesheets(prev => prev.map(t => t.id === updatedTimesheet.id ? updatedTimesheet : t));
-      
+      setShowClockOutModal(false);
       alert('Clocked out successfully!');
-      
-      // Refresh the list to ensure we have the latest data
       await fetchTimesheets();
     } catch (error) {
       console.error('Error clocking out:', error);
@@ -630,10 +641,52 @@ export default function TimesheetTable() {
     }
   };
 
+  // Save Note to Admin inline (anytime during the day)
+  const handleSaveNoteToAdmin = async (timesheetId: number) => {
+    try {
+      const token = realBackendAuthService.getCurrentToken();
+      if (!token) {
+        alert('Authentication required.');
+        return;
+      }
+
+      const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/timesheets/${timesheetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data: { noteToAdmin: editNoteToAdminText }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          alert(`Failed to save note: ${errorData.error?.message || 'Unknown error'}`);
+        } catch {
+          alert('Failed to save note.');
+        }
+        return;
+      }
+
+      const result = await response.json();
+      const updated = result.data || result;
+      setTimesheets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      setEditingNoteToAdmin(null);
+      setEditNoteToAdminText('');
+    } catch (error) {
+      console.error('Error saving note to admin:', error);
+      alert('Failed to save note to admin');
+    }
+  };
+
   const handleSaveNewTimesheet = async (timesheetData: CreateTimesheetData) => {
     try {
       const token = realBackendAuthService.getCurrentToken();
-      
+
       if (!token) {
         alert('Authentication required. Please log in again.');
         return;
@@ -642,7 +695,7 @@ export default function TimesheetTable() {
       // Validation: End time must be after start time
       const start = new Date(`2000-01-01T${timesheetData.startTime}`);
       const end = new Date(`2000-01-01T${timesheetData.endTime}`);
-      
+
       if (end <= start) {
         alert('End time must be after start time');
         return;
@@ -654,7 +707,7 @@ export default function TimesheetTable() {
         entryDate.setHours(0, 0, 0, 0);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         if (entryDate.getTime() !== today.getTime()) {
           alert('You can only submit timesheets for today\'s date. Please contact an admin for previous dates.');
           return;
@@ -703,8 +756,8 @@ export default function TimesheetTable() {
           } else {
             alert('Failed to create timesheet. Check console for details.');
           }
-        } catch (parseError) {
-          console.error('❌ Could not parse error:', parseError);
+        } catch {
+          console.error('❌ Could not parse error');
           alert('Failed to create timesheet. Raw error: ' + errorText.substring(0, 200));
         }
         return;
@@ -726,7 +779,7 @@ export default function TimesheetTable() {
   const handleUpdateTimesheet = async (timesheetId: number, timesheetData: Partial<CreateTimesheetData>) => {
     try {
       const token = realBackendAuthService.getCurrentToken();
-      
+
       if (!token) {
         alert('Authentication required. Please log in again.');
         return;
@@ -736,7 +789,7 @@ export default function TimesheetTable() {
       if (timesheetData.startTime && timesheetData.endTime) {
         const start = new Date(`2000-01-01T${timesheetData.startTime}`);
         const end = new Date(`2000-01-01T${timesheetData.endTime}`);
-        
+
         if (end <= start) {
           alert('End time must be after start time');
           return;
@@ -767,17 +820,18 @@ export default function TimesheetTable() {
           if (errorData.error?.message) {
             alert(`Failed to update timesheet: ${errorData.error.message}`);
           } else {
-            alert('Failed to update timesheet. Check console for details.');
+            alert('Failed to update timesheet. Check console.');
           }
-        } catch (parseError) {
-          alert('Failed to update timesheet');
+        } catch {
+          alert('Failed to update timesheet.');
         }
         return;
       }
 
       const result = await response.json();
       const updatedTimesheet = result.data || result;
-      setTimesheets(timesheets.map(t => t.id === timesheetId ? updatedTimesheet : t));
+
+      setTimesheets(prev => prev.map(t => t.id === timesheetId ? updatedTimesheet : t));
       setIsEditFormOpen(false);
       setCurrentTimesheet(null);
       alert('Timesheet updated successfully!');
@@ -787,970 +841,885 @@ export default function TimesheetTable() {
     }
   };
 
-  // Calculate aggregated hours for selected employee
-  const calculateAggregatedHours = (employeeId: number) => {
-    const employeeTimesheets = searchedTimesheets.filter(t => t.employee?.id === employeeId);
-    const total = employeeTimesheets.reduce((sum, t) => sum + (t.totalHours || 0), 0);
-    return total;
-  };
-
-  useEffect(() => {
-    if (selectedEmployeeForAggregation) {
-      setAggregatedHours(calculateAggregatedHours(selectedEmployeeForAggregation));
-    }
-  }, [selectedEmployeeForAggregation, searchedTimesheets]);
-
-  // Export functionality
-  const exportToCSV = () => {
-    const headers = ['Employee', 'Date', 'Start Time', 'End Time', 'Total Hours', 'Role', 'Location', 'Notes'];
-    const rows = searchedTimesheets.map(t => [
-      t.employee ? `${t.employee.firstName || ''} ${t.employee.lastName || ''}`.trim() || t.employee.username : 'N/A',
-      formatDate(t.date),
-      formatTime(t.startTime),
-      formatTime(t.endTime ?? undefined),
-      formatTotalHours(t.totalHours),
-      t.employee?.workRole || '',
-      t.location || '',
-      t.notes?.replace(/,/g, ';') || ''
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `timesheets_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    setShowExportDropdown(false);
-  };
-
-  const exportToExcel = () => {
-    // For Excel, we'll use CSV format (can be opened in Excel)
-    exportToCSV();
-    setShowExportDropdown(false);
-  };
-
-  // Weekly/Monthly aggregation
-  const getWeeklyTimesheets = () => {
-    const now = new Date();
-    const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    return searchedTimesheets.filter(t => {
-      const tDate = new Date(t.date);
-      return tDate >= weekStart && tDate <= weekEnd;
-    });
-  };
-
-  const getMonthlyTimesheets = () => {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
-
-    return searchedTimesheets.filter(t => {
-      const tDate = new Date(t.date);
-      return tDate >= monthStart && tDate <= monthEnd;
-    });
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600 dark:text-gray-400">Loading timesheets...</div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-red-600 dark:text-red-400">{error}</div>
+      <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 rounded-lg p-6 text-center">
+        <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+        <button
+          onClick={fetchTimesheets}
+          className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Timesheet Management</h2>
-          <p className="text-gray-600 dark:text-gray-400">Track and manage employee timesheets</p>
-        </div>
-      </div>
-
-      {/* Timesheet Table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Timesheets</h1>
-            <div className="flex gap-2">
-              {/* View Mode Toggle */}
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'table' 
-                      ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+      {/* Header Section */}
+      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Timesheets</h1>
+          <div className="flex gap-2">
+            {/* View Mode Toggle - Visible to All */}
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'table'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
-                >
-                  Table
-                </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => setViewMode('weekly')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                        viewMode === 'weekly' 
-                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      Weekly
-                    </button>
-                    <button
-                      onClick={() => setViewMode('monthly')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                        viewMode === 'monthly' 
-                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      Monthly
-                    </button>
-                  </>
-                )}
-              </div>
+              >
+                Table
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'calendar'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+              >
+                Calendar
+              </button>
+            </div>
 
-              {/* Export Dropdown */}
-              <div className="relative export-dropdown">
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-2"
-                >
-                  Export
-                  <span className="text-xs">▼</span>
-                </button>
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-                    <button
-                      onClick={exportToCSV}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg text-gray-700 dark:text-gray-300"
-                    >
-                      Export to CSV
-                    </button>
-                    <button
-                      onClick={exportToExcel}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg text-gray-700 dark:text-gray-300"
-                    >
-                      Export to Excel
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Add Timesheet / Clock In Button */}
-              {isAdmin ? (
-                <div className="relative add-timesheet-dropdown">
+            {/* Export Dropdown */}
+            <div className="relative export-dropdown">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+              >
+                Export
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 z-10">
                   <button
-                    onClick={handleAddTimesheet}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    onClick={() => {
+                      // CSV export logic to be implemented
+                      alert('CSV export coming soon');
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 first:rounded-t-lg"
                   >
-                    + Add Timesheet
+                    Export as CSV
                   </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {isClockedIn && todayTimesheet && (
-                    <span className="text-sm text-green-600 font-medium">
-                      Clocked in at {formatTime(todayTimesheet.startTime)}
-                    </span>
-                  )}
                   <button
-                    onClick={handleClockIn}
-                    disabled={isClockedIn}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                    onClick={() => {
+                      // PDF export logic to be implemented
+                      alert('PDF export coming soon');
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 last:rounded-b-lg"
                   >
-                    {isClockedIn ? '✓ Already Clocked In' : '🕐 Clock In'}
+                    Export as PDF
                   </button>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Search and Filters */}
-          <div className="flex gap-4 items-center">
-            <div className="flex-1">
-              <Input
-                type="text"
-                placeholder="Search by employee, role, notes..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full"
-              />
-            </div>
+            {/* Add Timesheet Button (Manual) - Admin Only */}
+            {isAdmin && (
+              <button
+                onClick={handleAddTimesheet}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Entry
+              </button>
+            )}
+
+            {/* Filter Button - before Clock In */}
             <div className="relative filter-dropdown">
               <button
                 onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                className={`px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${getActiveFilterCount() > 0
+                  ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-900/10'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
               >
-                Filters
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filter
                 {getActiveFilterCount() > 0 && (
-                  <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
                     {getActiveFilterCount()}
                   </span>
                 )}
-                <span className="text-xs">▼</span>
               </button>
               {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 p-4">
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 z-50 p-4">
                   <div className="space-y-4">
                     <div>
-                      <Label>Date Range</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <Label htmlFor="filter-date-start" className="text-xs text-gray-600 dark:text-gray-400 mb-1">Start Date</Label>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-gray-900 dark:text-white">Date Range</h3>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {dateRange.start && dateRange.end ? `${dateRange.start} to ${dateRange.end}` : 'No date range set'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative z-0">
                           <DatePicker
-                            id="filter-date-start"
-                            defaultDate={dateRange.start ? new Date(dateRange.start) : undefined}
-                            onChange={[
-                              (selectedDates) => {
-                                if (selectedDates && selectedDates.length > 0) {
-                                  const dateStr = selectedDates[0].toISOString().split('T')[0];
-                                  setDateRange({ ...dateRange, start: dateStr });
-                                } else {
-                                  setDateRange({ ...dateRange, start: '' });
-                                }
-                              }
-                            ]}
+                            id="ts-filter-date-start"
+                            label="Start Date"
                             placeholder="Start date"
+                            hideIcon
+                            defaultDate={dateRange.start ? new Date(dateRange.start + 'T00:00:00') : undefined}
+                            showClearButton={!!dateRange.start}
+                            onClear={() => {
+                              setDateRange(prev => ({ ...prev, start: '' }));
+                            }}
+                            onChange={(selectedDates) => {
+                              if (selectedDates && selectedDates.length > 0) {
+                                const startDate = selectedDates[0].toISOString().split('T')[0];
+                                setDateRange(prev => ({ ...prev, start: startDate }));
+                              } else {
+                                setDateRange(prev => ({ ...prev, start: '' }));
+                              }
+                            }}
                           />
                         </div>
-                        <div className="flex-1">
-                          <Label htmlFor="filter-date-end" className="text-xs text-gray-600 dark:text-gray-400 mb-1">End Date</Label>
+                        <div className="relative z-0">
                           <DatePicker
-                            id="filter-date-end"
-                            defaultDate={dateRange.end ? new Date(dateRange.end) : undefined}
-                            onChange={[
-                              (selectedDates) => {
-                                if (selectedDates && selectedDates.length > 0) {
-                                  const dateStr = selectedDates[0].toISOString().split('T')[0];
-                                  setDateRange({ ...dateRange, end: dateStr });
-                                } else {
-                                  setDateRange({ ...dateRange, end: '' });
-                                }
-                              }
-                            ]}
+                            id="ts-filter-date-end"
+                            label="End Date"
                             placeholder="End date"
+                            hideIcon
+                            defaultDate={dateRange.end ? new Date(dateRange.end + 'T00:00:00') : undefined}
+                            showClearButton={!!dateRange.end}
+                            onClear={() => {
+                              setDateRange(prev => ({ ...prev, end: '' }));
+                            }}
+                            onChange={(selectedDates) => {
+                              if (selectedDates && selectedDates.length > 0) {
+                                const endDate = selectedDates[0].toISOString().split('T')[0];
+                                setDateRange(prev => ({ ...prev, end: endDate }));
+                              } else {
+                                setDateRange(prev => ({ ...prev, end: '' }));
+                              }
+                            }}
                           />
                         </div>
                       </div>
                     </div>
+
                     {isAdmin && (
                       <div>
-                        <Label>Employee</Label>
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Employee</h3>
                         <Select
                           value={employeeFilter}
                           onChange={(value) => {
                             setEmployeeFilter(value);
-                            if (value) {
-                              setSelectedEmployeeForAggregation(parseInt(value));
-                            } else {
-                              setSelectedEmployeeForAggregation(null);
-                            }
+                            setSelectedEmployeeForAggregation(null);
                           }}
-                        >
-                          <option value="">All Employees</option>
-                          {uniqueEmployees.map(emp => (
-                            <option key={emp.id} value={emp.id.toString()}>
-                              {emp.firstName || ''} {emp.lastName || ''} {emp.username || ''}
-                            </option>
-                          ))}
-                        </Select>
+                          options={[
+                            { value: '', label: 'All Employees' },
+                            ...uniqueEmployees.map(emp => ({
+                              value: emp.id.toString(),
+                              label: `${emp.firstName || ''} ${emp.lastName || ''} ${emp.username || ''}`.trim()
+                            }))
+                          ]}
+                        />
                       </div>
                     )}
+
                     <div>
-                      <Label>Location</Label>
+                      <h3 className="font-medium text-gray-900 dark:text-white mb-2">Location</h3>
                       <Select
                         value={locationFilter}
                         onChange={(value) => setLocationFilter(value)}
-                      >
-                        <option value="">All Locations</option>
-                        <option value="Office">Office</option>
-                        <option value="Remote">Remote</option>
-                      </Select>
+                        options={[
+                          { value: '', label: 'All Locations' },
+                          { value: 'Office', label: 'Office' },
+                          { value: 'Work from Home', label: 'Work from Home' }
+                        ]}
+                      />
                     </div>
-                    <button
-                      onClick={() => {
-                        setDateRange({ start: '', end: '' });
-                        setLocationFilter('');
-                        setEmployeeFilter('');
-                        setSelectedEmployeeForAggregation(null);
-                      }}
-                      className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-                    >
-                      Clear Filters
-                    </button>
+
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                      <button
+                        onClick={() => {
+                          setDateRange({ start: '', end: '' });
+                          setLocationFilter('');
+                          setEmployeeFilter('');
+                          setSelectedEmployeeForAggregation(null);
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Admin Aggregation Display */}
-          {isAdmin && selectedEmployeeForAggregation && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Hours Worked</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {formatTotalHours(aggregatedHours)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {uniqueEmployees.find(e => e.id === selectedEmployeeForAggregation)?.firstName || ''} 
-                    {' '}
-                    {uniqueEmployees.find(e => e.id === selectedEmployeeForAggregation)?.lastName || ''}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedEmployeeForAggregation(null);
-                    setEmployeeFilter('');
-                  }}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
+            {/* Clock In/Out Buttons - Non-admin only */}
+            {!isAdmin && (
+              <>
+                {isClockedIn ? (
+                  <button
+                    onClick={handleClockOut}
+                    disabled={hasClockedOutToday}
+                    className={`px-4 py-2 ${hasClockedOutToday ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+                      } text-white rounded-lg transition-colors flex items-center gap-2`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Clock Out
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleClockIn}
+                    disabled={hasClockedOutToday}
+                    className={`px-4 py-2 ${hasClockedOutToday ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                      } text-white rounded-lg transition-colors flex items-center gap-2`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                    Clock In
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Table View */}
-        {viewMode === 'table' && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300"
-                    />
-                  </th>
-                  {visibleColumns.employee && (
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => handleSort('employee')}
-                    >
-                      Employee {getSortIcon('employee')}
-                    </th>
-                  )}
-                  {visibleColumns.date && (
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => handleSort('date')}
-                    >
-                      Date {getSortIcon('date')}
-                    </th>
-                  )}
-                  {visibleColumns.startTime && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Start Time {!isAdmin && '(Clock In)'}
-                    </th>
-                  )}
-                  {visibleColumns.endTime && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      End Time {!isAdmin && '(Clock Out)'}
-                    </th>
-                  )}
-                  {visibleColumns.totalHours && (
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => handleSort('totalHours')}
-                    >
-                      Total Hours {getSortIcon('totalHours')}
-                    </th>
-                  )}
-                  {visibleColumns.workRole && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Role
-                    </th>
-                  )}
-                  {visibleColumns.location && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Location
-                    </th>
-                  )}
-                  {visibleColumns.notes && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Notes
-                    </th>
-                  )}
-                  {visibleColumns.actions && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-gray-900">
-                {sortedTimesheets.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                      No timesheets found
-                    </td>
-                  </tr>
-                ) : (
-                  sortedTimesheets.map((timesheet) => (
-                    <tr key={timesheet.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedTimesheets.has(timesheet.id)}
-                          onChange={() => handleRowSelect(timesheet.id)}
-                          className="rounded border-gray-300"
-                        />
-                      </td>
-                      {visibleColumns.employee && (
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
-                          {timesheet.employee 
-                            ? `${timesheet.employee.firstName || ''} ${timesheet.employee.lastName || ''}`.trim() || timesheet.employee.username
-                            : 'N/A'}
-                        </td>
-                      )}
-                      {visibleColumns.date && (
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
-                          {formatDate(timesheet.date)}
-                        </td>
-                      )}
-                      {visibleColumns.startTime && (
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
-                          {formatTime(timesheet.startTime)}
-                        </td>
-                      )}
-                      {visibleColumns.endTime && (
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {!isAdmin && 
-                           timesheet.employee?.id === user?.id && 
-                           timesheet.startTime && 
-                           !timesheet.endTime && 
-                           timesheet.id === todayTimesheet?.id ? (
-                            <button
-                              onClick={() => handleClockOut()}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-                            >
-                              Clock Out
-                            </button>
-                          ) : timesheet.endTime ? (
-                            <span className="text-gray-900 dark:text-white">{formatTime(timesheet.endTime)}</span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">-</span>
-                          )}
-                        </td>
-                      )}
-                      {visibleColumns.totalHours && (
-                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white">
-                          {formatTotalHours(timesheet.totalHours)}
-                        </td>
-                      )}
-                      {visibleColumns.workRole && (
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{timesheet.employee?.workRole || 'N/A'}</span>
-                        </td>
-                      )}
-                      {visibleColumns.location && (
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getLocationColor(timesheet.location)}`}>
-                            {timesheet.location || 'N/A'}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.notes && (
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate" title={timesheet.notes}>
-                            {timesheet.notes || 'N/A'}
-                          </div>
-                        </td>
-                      )}
-                      {visibleColumns.actions && isAdmin && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditTimesheet(timesheet)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTimesheet(timesheet)}
-                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
+        {/* Total Hours Summary - shown when any filter is active */}
+        {isAdmin && (employeeFilter || dateRange.start || dateRange.end || locationFilter) && (() => {
+          const filtered = searchTimesheets();
+          const totalMinutes = Math.round(
+            filtered.reduce((sum, ts) => sum + (ts.totalHours || 0), 0) * 60
+          );
+          const hours = Math.floor(totalMinutes / 60);
+          const mins = totalMinutes % 60;
+          const selectedEmp = employeeFilter
+            ? uniqueEmployees.find(e => e.id.toString() === employeeFilter)
+            : null;
+          const empName = selectedEmp
+            ? `${selectedEmp.firstName || ''} ${selectedEmp.lastName || ''}`.trim() || selectedEmp.username
+            : 'All Employees';
+          const periodLabel = dateRange.start && dateRange.end
+            ? `${dateRange.start} — ${dateRange.end}`
+            : dateRange.start
+              ? `From ${dateRange.start}`
+              : dateRange.end
+                ? `Until ${dateRange.end}`
+                : '';
+          return (
+            <div className="mt-3 flex items-center gap-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-200">{empName}:</span>
+                <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                  {hours > 0 ? `${hours}h ` : ''}{mins}min
+                </span>
+                <span className="text-sm text-blue-600 dark:text-blue-400">({filtered.length} entries)</span>
+                {periodLabel && (
+                  <span className="text-xs text-blue-500 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                    {periodLabel}
+                  </span>
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })()}
 
-        {/* Weekly View */}
-        {viewMode === 'weekly' && isAdmin && (
-          <div className="p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Weekly Timesheets</h2>
-            <div className="space-y-4">
-              {getWeeklyTimesheets().map((timesheet) => (
-                <div key={timesheet.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {timesheet.employee 
-                          ? `${timesheet.employee.firstName || ''} ${timesheet.employee.lastName || ''}`.trim() || timesheet.employee.username
-                          : 'N/A'}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{formatDate(timesheet.date)}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{formatTime(timesheet.startTime ?? undefined)} - {formatTime(timesheet.endTime ?? undefined)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900 dark:text-white">{formatTotalHours(timesheet.totalHours)}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{timesheet.employee?.workRole || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{timesheet.notes}</p>
-                </div>
-              ))}
-              {getWeeklyTimesheets().length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No timesheets for this week</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Monthly View */}
-        {viewMode === 'monthly' && isAdmin && (
-          <div className="p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Monthly Timesheets</h2>
-            <div className="space-y-4">
-              {getMonthlyTimesheets().map((timesheet) => (
-                <div key={timesheet.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {timesheet.employee 
-                          ? `${timesheet.employee.firstName || ''} ${timesheet.employee.lastName || ''}`.trim() || timesheet.employee.username
-                          : 'N/A'}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{formatDate(timesheet.date)}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{formatTime(timesheet.startTime ?? undefined)} - {formatTime(timesheet.endTime ?? undefined)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900 dark:text-white">{formatTotalHours(timesheet.totalHours)}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{timesheet.employee?.workRole || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{timesheet.notes}</p>
-                </div>
-              ))}
-              {getMonthlyTimesheets().length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No timesheets for this month</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {viewMode === 'table' && totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center">
-            <div className="text-sm text-gray-700 dark:text-gray-300">
-              Showing {indexOfFirstTimesheet + 1} to {Math.min(indexOfLastTimesheet, searchedTimesheets.length)} of {searchedTimesheets.length} timesheets
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600"
-              >
-                Next
-              </button>
-            </div>
+        {/* Search Row - Admin Only */}
+        {isAdmin && (
+          <div className="mt-4">
+            <Input
+              type="text"
+              placeholder="Search by employee, role, notes..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full"
+            />
           </div>
         )}
       </div>
 
-      {/* Add Timesheet Form Modal */}
-      {showAddTimesheetForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Timesheet</h2>
-              <button
-                onClick={() => setShowAddTimesheetForm(false)}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-            <AddTimesheetForm
-              onSubmit={handleSaveNewTimesheet}
-              onCancel={() => setShowAddTimesheetForm(false)}
-              isAdmin={isAdmin}
-              allUsers={allUsers}
-              currentUserId={user?.id}
-            />
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+            <thead className="bg-gray-50 dark:bg-gray-900/50">
+              <tr>
+
+                {visibleColumns.employee && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleSort('employee')}
+                  >
+                    Employee {getSortIcon('employee')}
+                  </th>
+                )}
+                {visibleColumns.date && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleSort('date')}
+                  >
+                    Date {getSortIcon('date')}
+                  </th>
+                )}
+                {visibleColumns.startTime && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Time
+                  </th>
+                )}
+                {visibleColumns.totalHours && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleSort('totalHours')}
+                  >
+                    Duration {getSortIcon('totalHours')}
+                  </th>
+                )}
+                {visibleColumns.workRole && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Role
+                  </th>
+                )}
+                {visibleColumns.notes && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Notes
+                  </th>
+                )}
+                {visibleColumns.noteToAdmin && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Note to Admin
+                  </th>
+                )}
+                {visibleColumns.location && (
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Location
+                  </th>
+                )}
+                {visibleColumns.actions && (
+                  <th scope="col" className="relative px-6 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {sortedTimesheets.length > 0 ? (
+                sortedTimesheets.map((timesheet) => (
+                  <tr
+                    key={timesheet.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    {visibleColumns.employee && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-semibold text-gray-600 dark:text-gray-300">
+                            {timesheet.employee?.firstName?.[0] || timesheet.employee?.username?.[0] || '?'}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {timesheet.employee
+                                ? `${timesheet.employee.firstName || ''} ${timesheet.employee.lastName || ''}`.trim() || timesheet.employee.username
+                                : 'Unknown User'}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {timesheet.employee?.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.date && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatDate(timesheet.date)}
+                      </td>
+                    )}
+                    {visibleColumns.startTime && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatTime(timesheet.startTime || undefined) || '—'} - {formatTime(timesheet.endTime || undefined) || '—'}
+                      </td>
+                    )}
+                    {visibleColumns.totalHours && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {formatTotalHours(timesheet.totalHours)}
+                      </td>
+                    )}
+                    {visibleColumns.workRole && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {timesheet.employee?.workRole || '—'}
+                      </td>
+                    )}
+                    {visibleColumns.notes && (
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={timesheet.notes}>
+                        {timesheet.notes || '—'}
+                      </td>
+                    )}
+                    {visibleColumns.noteToAdmin && (
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                        {editingNoteToAdmin === timesheet.id ? (
+                          <div className="flex gap-2">
+                            <Input
+                              value={editNoteToAdminText}
+                              onChange={(e) => setEditNoteToAdminText(e.target.value)}
+                              className="w-full text-xs"
+                              placeholder="Note to admin..."
+                            />
+                            <button
+                              onClick={() => handleSaveNoteToAdmin(timesheet.id)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Save"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingNoteToAdmin(null);
+                                setEditNoteToAdminText('');
+                              }}
+                              className="text-red-600 hover:text-red-800"
+                              title="Cancel"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center group">
+                            <span className="truncate" title={timesheet.noteToAdmin || ''}>
+                              {timesheet.noteToAdmin || (isAdmin ? <span className="text-gray-300 italic">None</span> : '—')}
+                            </span>
+                            {(user?.id === timesheet.employee?.id || isAdmin) && (
+                              <button
+                                onClick={() => {
+                                  setEditingNoteToAdmin(timesheet.id);
+                                  setEditNoteToAdminText(timesheet.noteToAdmin || '');
+                                }}
+                                className={`ml-2 text-blue-600 hover:text-blue-800 transition-opacity ${isAdmin ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+                                title="Edit Note"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.location && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getLocationColor(timesheet.location)}`}>
+                          {timesheet.location}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.actions && (
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleEditTimesheet(timesheet)}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTimesheet(timesheet)}
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    No timesheets found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Calendar View */}
+      {viewMode === 'calendar' && (
+        <div className="p-4">
+          <TimesheetCalendar timesheets={searchedTimesheets} />
+        </div>
+      )}
+
+      {/* Pagination */}
+      {viewMode === 'table' && totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
+            Showing {indexOfFirstTimesheet + 1} to {Math.min(indexOfLastTimesheet, searchedTimesheets.length)} of {searchedTimesheets.length} timesheets
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600"
+            >
+              Next
+            </button>
           </div>
         </div>
       )}
 
-      {/* Edit Timesheet Form Modal */}
-      {isEditFormOpen && currentTimesheet && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Edit Timesheet</h2>
-              <button
-                onClick={() => {
-                  setIsEditFormOpen(false);
-                  setCurrentTimesheet(null);
-                }}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-            <EditTimesheetForm
-              timesheet={currentTimesheet}
-              onSubmit={(data) => handleUpdateTimesheet(currentTimesheet.id, data)}
-              onCancel={() => {
-                setIsEditFormOpen(false);
-                setCurrentTimesheet(null);
+      {/* Add Timesheet Modal */}
+      {showAddTimesheetForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Add Timesheet Entry</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveNewTimesheet({
+                  date: addFormData.date,
+                  startTime: addFormData.startTime,
+                  endTime: addFormData.endTime,
+                  notes: addFormData.notes,
+                  location: addFormData.location,
+                  employee: isAdmin && addFormData.employee ? Number(addFormData.employee) : undefined,
+                });
               }}
-              isAdmin={isAdmin}
-              allUsers={allUsers}
-            />
+              className="space-y-4"
+            >
+              {isAdmin && (
+                <div>
+                  <Label htmlFor="add-employee">Employee</Label>
+                  <Select
+                    value={addFormData.employee}
+                    onChange={(value) => setAddFormData(prev => ({ ...prev, employee: value }))}
+                    options={allUsers.map(u => ({
+                      value: u.id.toString(),
+                      label: `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()
+                    }))}
+                  />
+                </div>
+              )}
+              <div>
+                <Label htmlFor="add-date">Date</Label>
+                <Input
+                  type="date"
+                  id="add-date"
+                  value={addFormData.date}
+                  onChange={(e) => setAddFormData(prev => ({ ...prev, date: e.target.value }))}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="add-startTime">Start Time</Label>
+                  <TimePicker
+                    id="add-startTime"
+                    value={addFormData.startTime}
+                    onChange={(val) => setAddFormData(prev => ({ ...prev, startTime: val }))}
+                    placeholder="Start time"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add-endTime">End Time</Label>
+                  <TimePicker
+                    id="add-endTime"
+                    value={addFormData.endTime}
+                    onChange={(val) => setAddFormData(prev => ({ ...prev, endTime: val }))}
+                    placeholder="End time"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="add-location">Location</Label>
+                <Select
+                  value={addFormData.location}
+                  onChange={(value) => setAddFormData(prev => ({ ...prev, location: value as any }))}
+                  defaultValue="Office"
+                  options={[
+                    { value: 'Office', label: 'Office' },
+                    { value: 'Work from Home', label: 'Work from Home' }
+                  ]}
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-notes">Notes</Label>
+                <textarea
+                  id="add-notes"
+                  value={addFormData.notes}
+                  onChange={(e) => setAddFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTimesheetForm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+
+      {/* Edit Timesheet Modal */}
+      {isEditFormOpen && currentTimesheet && (() => {
+        // Use a sub-component pattern via IIFE to allow hooks-like state
+        // We use hidden inputs to work with FormData while showing TimePicker
+        const EditTimesheetForm = () => {
+          const [editStartTime, setEditStartTime] = useState(currentTimesheet.startTime || '');
+          const [editEndTime, setEditEndTime] = useState(currentTimesheet.endTime || '');
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Edit Timesheet Entry</h2>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    handleUpdateTimesheet(currentTimesheet.id, {
+                      date: formData.get('date') as string,
+                      startTime: formData.get('startTime') as string,
+                      endTime: formData.get('endTime') as string,
+                      notes: formData.get('notes') as string,
+                      location: formData.get('location') as "Office" | "Work from Home",
+                      employee: isAdmin ? Number(formData.get('employee')) : undefined,
+                    });
+                  }}
+                  className="space-y-4"
+                >
+                  {isAdmin && (
+                    <div>
+                      <Label htmlFor="edit-employee">Employee</Label>
+                      <select
+                        name="employee"
+                        defaultValue={currentTimesheet.employee?.id.toString()}
+                        className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                      >
+                        {allUsers.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {`${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="edit-date">Date</Label>
+                    <Input type="date" name="date" defaultValue={currentTimesheet.date} disabled={!isAdmin} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-startTime">Start Time</Label>
+                      <input type="hidden" name="startTime" value={editStartTime} />
+                      <TimePicker
+                        id="edit-startTime"
+                        value={editStartTime}
+                        onChange={setEditStartTime}
+                        placeholder="Start time"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-endTime">End Time</Label>
+                      <input type="hidden" name="endTime" value={editEndTime} />
+                      <TimePicker
+                        id="edit-endTime"
+                        value={editEndTime}
+                        onChange={setEditEndTime}
+                        placeholder="End time"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-location">Location</Label>
+                    <select
+                      name="location"
+                      defaultValue={currentTimesheet.location}
+                      className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                    >
+                      <option value="Office">Office</option>
+                      <option value="Work from Home">Work from Home</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-notes">Notes</Label>
+                    <textarea
+                      name="notes"
+                      defaultValue={currentTimesheet.notes}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      rows={3}
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditFormOpen(false)}
+                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                    >
+                      Update
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        };
+        return <EditTimesheetForm />;
+      })()}
+
+      {/* Clock In Modal */}
+      {
+        showClockInModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock In</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="clockInLocation">Location</Label>
+                  <Select
+                    value={clockInLocation}
+                    onChange={(value) => setClockInLocation(value as "Office" | "Work from Home")}
+                    options={[
+                      { value: 'Office', label: 'Office' },
+                      { value: 'Work from Home', label: 'Work from Home' }
+                    ]}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    onClick={() => setShowClockInModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleClockInSubmit}
+                    className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+                  >
+                    Confirm Clock In
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Clock Out Modal */}
+      {
+        showClockOutModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock Out</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="clockOutNotes">What did you work on today?</Label>
+                  <textarea
+                    id="clockOutNotes"
+                    value={clockOutNotes}
+                    onChange={(e) => setClockOutNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    rows={3}
+                    placeholder="Summarize your tasks..."
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="clockOutNoteToAdmin">Note to Admin (Optional)</Label>
+                  <Input
+                    id="clockOutNoteToAdmin"
+                    value={clockOutNoteToAdmin}
+                    onChange={(e) => setClockOutNoteToAdmin(e.target.value)}
+                    placeholder="Any issues or requests?"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    onClick={() => setShowClockOutModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleClockOutSubmit}
+                    className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+                  >
+                    Confirm Clock Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
     </div>
   );
 }
-
-// Add Timesheet Form Component
-function AddTimesheetForm({ 
-  onSubmit, 
-  onCancel,
-  isAdmin,
-  allUsers,
-  currentUserId
-}: { 
-  onSubmit: (data: CreateTimesheetData) => void;
-  onCancel: () => void;
-  isAdmin: boolean;
-  allUsers: Array<{id: number; username: string; email: string; firstName?: string; lastName?: string}>;
-  currentUserId?: number;
-}) {
-  const [formData, setFormData] = useState<CreateTimesheetData>({
-    date: new Date().toISOString().split('T')[0], // Always today for non-admins
-    startTime: '09:00',
-    endTime: '17:00',
-    notes: '',
-    location: 'Office',
-    employee: currentUserId, // Default to current user
-  });
-
-  // Ensure date is always today for non-admins
-  useEffect(() => {
-    if (!isAdmin) {
-      const today = new Date().toISOString().split('T')[0];
-      if (formData.date !== today) {
-        setFormData(prev => ({ ...prev, date: today }));
-      }
-    }
-  }, [isAdmin, formData.date]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {isAdmin && (
-        <div>
-          <Label>Employee *</Label>
-          <Select
-            value={formData.employee?.toString() || ''}
-            onChange={(value) => setFormData({ ...formData, employee: value ? parseInt(value, 10) : undefined })}
-          >
-            <option value="">Select Employee</option>
-            {allUsers.length > 0 ? (
-              allUsers.map(user => (
-                <option key={user.id} value={user.id.toString()}>
-                  {user.firstName || ''} {user.lastName || ''} {user.username || ''} ({user.email})
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>Loading employees...</option>
-            )}
-          </Select>
-          {allUsers.length === 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Loading employees...</p>
-          )}
-        </div>
-      )}
-      <div>
-        <Label htmlFor="add-timesheet-date">Date {!isAdmin && '(Today only)'}</Label>
-        {isAdmin ? (
-          <DatePicker
-            id="add-timesheet-date"
-            defaultDate={formData.date ? new Date(formData.date) : new Date()}
-            onChange={[
-              (selectedDates) => {
-                if (selectedDates && selectedDates.length > 0) {
-                  const dateStr = selectedDates[0].toISOString().split('T')[0];
-                  setFormData({ ...formData, date: dateStr });
-                }
-              }
-            ]}
-            placeholder="Select date"
-          />
-        ) : (
-          <div>
-            <input
-              type="text"
-              value={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              disabled
-              className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
-            />
-            <input
-              type="hidden"
-              value={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Start Time *</Label>
-          <Input
-            type="time"
-            value={formData.startTime}
-            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label>End Time *</Label>
-          <Input
-            type="time"
-            value={formData.endTime}
-            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-          />
-        </div>
-      </div>
-      <div>
-        <Label>Location</Label>
-        <Select
-          value={formData.location}
-            onChange={(value) => setFormData({ ...formData, location: value as "Office" | "Remote" })}
-        >
-          <option value="Office">Office</option>
-          <option value="Remote">Remote</option>
-        </Select>
-      </div>
-      <div>
-        <Label>Notes *</Label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          rows={4}
-          placeholder="What work was done today?"
-        />
-      </div>
-      <div className="flex justify-end gap-2 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Save Timesheet
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// Edit Timesheet Form Component
-function EditTimesheetForm({ 
-  timesheet, 
-  onSubmit, 
-  onCancel,
-  isAdmin,
-  allUsers
-}: { 
-  timesheet: Timesheet;
-  onSubmit: (data: Partial<CreateTimesheetData>) => void;
-  onCancel: () => void;
-  isAdmin: boolean;
-  allUsers: Array<{id: number; username: string; email: string; firstName?: string; lastName?: string}>;
-}) {
-  const [formData, setFormData] = useState<Partial<CreateTimesheetData>>({
-    date: timesheet.date,
-    startTime: timesheet.startTime ?? undefined,
-    endTime: timesheet.endTime ?? undefined,
-    notes: timesheet.notes,
-    location: timesheet.location,
-    employee: timesheet.employee?.id,
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {isAdmin && (
-        <div>
-          <Label>Employee *</Label>
-          <Select
-            value={formData.employee?.toString() || ''}
-            onChange={(value) => setFormData({ ...formData, employee: value ? parseInt(value, 10) : undefined })}
-          >
-            <option value="">Select Employee</option>
-            {allUsers.length > 0 ? (
-              allUsers.map(user => (
-                <option key={user.id} value={user.id.toString()}>
-                  {user.firstName || ''} {user.lastName || ''} {user.username || ''} ({user.email})
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>Loading employees...</option>
-            )}
-          </Select>
-          {allUsers.length === 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Loading employees...</p>
-          )}
-        </div>
-      )}
-      <div>
-        <Label htmlFor="edit-timesheet-date">Date {!isAdmin && '(Cannot change)'}</Label>
-        {isAdmin ? (
-          <DatePicker
-            id="edit-timesheet-date"
-            defaultDate={formData.date ? new Date(formData.date) : new Date(timesheet.date)}
-            onChange={[
-              (selectedDates) => {
-                if (selectedDates && selectedDates.length > 0) {
-                  const dateStr = selectedDates[0].toISOString().split('T')[0];
-                  setFormData({ ...formData, date: dateStr });
-                }
-              }
-            ]}
-            placeholder="Select date"
-          />
-        ) : (
-          <div>
-            <input
-              type="text"
-              value={formData.date ? new Date(formData.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date(timesheet.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              disabled
-              className="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-            />
-            <input
-              type="hidden"
-              value={formData.date || timesheet.date}
-            />
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Start Time *</Label>
-          <Input
-            type="time"
-            value={formData.startTime || ''}
-            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label>End Time *</Label>
-          <Input
-            type="time"
-            value={formData.endTime || ''}
-            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-          />
-        </div>
-      </div>
-      <div>
-        <Label>Location</Label>
-        <Select
-          value={formData.location || 'Office'}
-            onChange={(value) => setFormData({ ...formData, location: value as "Office" | "Remote" })}
-        >
-          <option value="Office">Office</option>
-          <option value="Remote">Remote</option>
-        </Select>
-      </div>
-      <div>
-        <Label>Notes *</Label>
-        <textarea
-          value={formData.notes || ''}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          rows={4}
-          placeholder="What work was done today?"
-        />
-      </div>
-      <div className="flex justify-end gap-2 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Update Timesheet
-        </button>
-      </div>
-    </form>
-  );
-}
-

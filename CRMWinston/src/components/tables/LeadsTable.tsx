@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useEditForm } from "@/context/EditFormContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import { realBackendAuthService } from "../../services/realBackendAuthService";
@@ -85,7 +86,7 @@ const formatFileSize = (bytes: number | undefined) => {
 
 const getFileIcon = (mimeType: string | undefined) => {
   if (!mimeType) return "📄";
-  
+
   if (mimeType.startsWith('image/')) return "🖼️";
   if (mimeType.startsWith('video/')) return "🎥";
   if (mimeType.startsWith('audio/')) return "🎵";
@@ -93,7 +94,7 @@ const getFileIcon = (mimeType: string | undefined) => {
   if (mimeType.includes('word') || mimeType.includes('document')) return "📘";
   if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return "📗";
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return "📙";
-  
+
   return "📄";
 };
 
@@ -111,13 +112,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   const [currentPage, setCurrentPage] = useState(1);
   const [leadsPerPage] = useState(20);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
-  
+
   // Sorting and column visibility state
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Lead | null;
     direction: 'asc' | 'desc';
   }>({ key: null, direction: 'asc' });
-  
+
   const [visibleColumns, setVisibleColumns] = useState({
     Name: true,
     Phone: true,
@@ -131,7 +132,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     Documents: true,
     Actions: true
   });
-  
+
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddLeadDropdown, setShowAddLeadDropdown] = useState(false);
@@ -140,6 +141,8 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter || '');
   const [countryFilter, setCountryFilter] = useState<string>('');
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
 
   // Update statusFilter when initialStatusFilter changes
   useEffect(() => {
@@ -147,7 +150,46 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       setStatusFilter(initialStatusFilter);
     }
   }, [initialStatusFilter]);
-  
+
+  // Calculate filter dropdown position
+  useEffect(() => {
+    if (showFilterDropdown && filterButtonRef.current) {
+      const updatePosition = () => {
+        if (filterButtonRef.current) {
+          const rect = filterButtonRef.current.getBoundingClientRect();
+          const dropdownWidth = 320; // w-80 = 320px
+          const viewportWidth = window.innerWidth;
+
+          let left = rect.left;
+          // If dropdown would overflow on the right, align it to the right edge of the button
+          if (left + dropdownWidth > viewportWidth) {
+            left = rect.right - dropdownWidth;
+          }
+          // Ensure it doesn't go off the left edge
+          if (left < 0) {
+            left = 8; // 8px padding from edge
+          }
+
+          setFilterDropdownPosition({
+            top: rect.bottom + 4,
+            left: left
+          });
+        }
+      };
+
+      updatePosition();
+
+      // Update position on scroll or resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [showFilterDropdown]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -160,15 +202,26 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       if (showExportDropdown && !(event.target as Element).closest('.export-dropdown')) {
         setShowExportDropdown(false);
       }
-      if (showFilterDropdown && !(event.target as Element).closest('.filter-dropdown')) {
-        setShowFilterDropdown(false);
+      if (showFilterDropdown) {
+        const target = event.target as Element;
+        // Check if click is outside both the button and the portal dropdown
+        // Also exclude flatpickr calendar clicks
+        if (
+          filterButtonRef.current &&
+          !filterButtonRef.current.contains(target) &&
+          !target.closest('[data-filter-dropdown]') &&
+          !target.closest('.flatpickr-calendar') &&
+          !target.closest('.flatpickr-wrapper')
+        ) {
+          setShowFilterDropdown(false);
+        }
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showColumnDropdown, showAddLeadDropdown, showExportDropdown]);
-  
+
   // Close dropdowns when pressing Escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -185,92 +238,92 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   }, [showColumnDropdown, showAddLeadDropdown, showExportDropdown]);
 
 
-  useEffect(() => {
-    const fetchLeads = async () => {
-      try {
-        console.log('🔍 Starting to fetch leads...');
-        setLoading(true);
-        
-        // Get JWT token from realBackendAuthService
-        const token = realBackendAuthService.getCurrentToken();
-        console.log('🔑 JWT Token:', token ? `${token.substring(0, 50)}...` : 'No token found');
-        
-        if (!token) {
-          throw new Error('No authentication token available. Please log in again.');
-        }
-        
-        // Use direct fetch with JWT token
-        const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
-        const response = await fetch(`${strapiUrl}/api/leads?populate=*`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          mode: 'cors',
-        });
-        console.log('📡 Response status:', response.status, response.statusText);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch leads: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('✅ API Response:', data);
-        console.log('📊 Number of leads:', data.data?.length || 0);
-        
-        // Log detailed information about each lead and its documents
-        if (data.data && Array.isArray(data.data)) {
-          data.data.forEach((lead: any, index: number) => {
-            console.log(`📋 Lead ${index + 1}:`, {
-              id: lead.id,
-              name: lead.attributes?.Name || lead.Name,
-              documentsCount: lead.attributes?.Documents?.data?.length || lead.Documents?.length || 0,
-              documents: lead.attributes?.Documents?.data || lead.Documents || [],
-              rawLead: lead
-            });
-            
-            // Log the actual structure of the lead
-            console.log(`🔍 Lead ${index + 1} structure:`, {
-              id: lead.id,
-              attributes: lead.attributes,
-              hasDocuments: !!lead.attributes?.Documents,
-              documentsField: lead.attributes?.Documents,
-              documentsData: lead.attributes?.Documents?.data,
-              allKeys: Object.keys(lead.attributes || {})
-            });
+  // Fetch leads function (extracted to be reusable)
+  const fetchLeads = async () => {
+    try {
+      console.log('🔍 Starting to fetch leads...');
+      setLoading(true);
+
+      // Get JWT token from realBackendAuthService
+      const token = realBackendAuthService.getCurrentToken();
+      console.log('🔑 JWT Token:', token ? `${token.substring(0, 50)}...` : 'No token found');
+
+      if (!token) {
+        throw new Error('No authentication token available. Please log in again.');
+      }
+
+      // Use direct fetch with JWT token
+      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const response = await fetch(`${strapiUrl}/api/leads?populate=*`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        mode: 'cors',
+      });
+      console.log('📡 Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch leads: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ API Response:', data);
+      console.log('📊 Number of leads:', data.data?.length || 0);
+
+      // Log detailed information about each lead and its documents
+      if (data.data && Array.isArray(data.data)) {
+        data.data.forEach((lead: any, index: number) => {
+          console.log(`📋 Lead ${index + 1}:`, {
+            id: lead.id,
+            name: lead.attributes?.Name || lead.Name,
+            documentsCount: lead.attributes?.Documents?.data?.length || lead.Documents?.length || 0,
+            documents: lead.attributes?.Documents?.data || lead.Documents || [],
+            rawLead: lead
           });
-        }
-        
-        // Transform the Strapi response to match our interface
-        let transformedLeads = data.data || [];
-        
-        console.log('🔄 Transforming Strapi response to match our interface...');
-        transformedLeads = transformedLeads.map((lead: any) => {
-          // Transform documents to match our interface
-          let transformedDocuments: Array<{
-            id: number;
-            attributes: {
-              Name: string;
-              url: string;
-              alternativeText: string;
-              caption: string;
-              width: number | null;
-              height: number | null;
-              formats: any;
-              hash: string;
-              ext: string;
-              mime: string;
-              size: number;
-              previewUrl: string;
-              provider: string;
-              provider_metadata: any;
-              createdAt: string;
-              updatedAt: string;
-            };
-          }> = [];
-          
-                  // Check for documents in the correct Strapi structure
+
+          // Log the actual structure of the lead
+          console.log(`🔍 Lead ${index + 1} structure:`, {
+            id: lead.id,
+            attributes: lead.attributes,
+            hasDocuments: !!lead.attributes?.Documents,
+            documentsField: lead.attributes?.Documents,
+            documentsData: lead.attributes?.Documents?.data,
+            allKeys: Object.keys(lead.attributes || {})
+          });
+        });
+      }
+
+      // Transform the Strapi response to match our interface
+      let transformedLeads = data.data || [];
+
+      console.log('🔄 Transforming Strapi response to match our interface...');
+      transformedLeads = transformedLeads.map((lead: any) => {
+        // Transform documents to match our interface
+        let transformedDocuments: Array<{
+          id: number;
+          attributes: {
+            Name: string;
+            url: string;
+            alternativeText: string;
+            caption: string;
+            width: number | null;
+            height: number | null;
+            formats: any;
+            hash: string;
+            ext: string;
+            mime: string;
+            size: number;
+            previewUrl: string;
+            provider: string;
+            provider_metadata: any;
+            createdAt: string;
+            updatedAt: string;
+          };
+        }> = [];
+
+        // Check for documents in the correct Strapi structure
         console.log('🔍 Processing lead documents:', {
           leadId: lead.id,
           leadName: lead.attributes?.Name || lead.Name,
@@ -279,72 +332,73 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           documentsData: lead.attributes?.Documents?.data,
           fallbackDocuments: lead.Documents
         });
-        
+
         const documentsData = lead.attributes?.Documents?.data || lead.Documents || [];
         if (documentsData && Array.isArray(documentsData)) {
           transformedDocuments = documentsData.map((doc: any) => ({
-              id: doc.id,
-              attributes: {
-                Name: doc.attributes?.name || doc.attributes?.Name || doc.name || doc.Name || 'Document',
-                url: doc.attributes?.url || doc.url || '',
-                alternativeText: doc.attributes?.alternativeText || doc.alternativeText || '',
-                caption: doc.attributes?.caption || doc.caption || '',
-                width: doc.attributes?.width || doc.width || null,
-                height: doc.attributes?.height || doc.height || null,
-                formats: doc.attributes?.formats || doc.formats || null,
-                hash: doc.attributes?.hash || doc.hash || '',
-                ext: doc.attributes?.ext || doc.ext || '',
-                mime: doc.attributes?.mime || doc.mime || 'application/octet-stream',
-                size: doc.attributes?.size || doc.size || 0,
-                previewUrl: doc.attributes?.previewUrl || doc.previewUrl || '',
-                provider: doc.attributes?.provider || doc.provider || '',
-                provider_metadata: doc.attributes?.provider_metadata || doc.provider_metadata || null,
-                createdAt: doc.attributes?.createdAt || doc.createdAt || '',
-                updatedAt: doc.attributes?.updatedAt || doc.updatedAt || ''
-              }
-            }));
-          }
-          
-          return {
-            id: lead.id,
-            documentId: lead.documentId || '',
-            Name: lead.Name || '',
-            Email: lead.Email || '',
-            Phone: lead.Phone || '',
-            Notes: lead.Notes || '',
-            Source: lead.Source || '',
-            LeadStatus: lead.LeadStatus || 'New Lead',
-            Courses: lead.Courses || '',
-            Date: lead.Date || '',
-            createdAt: lead.createdAt || '',
-            updatedAt: lead.updatedAt || '',
-            publishedAt: lead.publishedAt || null,
-            locale: lead.locale || null,
-            Country: lead.Country || null,
-            Documents: transformedDocuments
-          };
-        });
-        
-        console.log('✅ Transformed leads with documents:', transformedLeads);
-        setLeads(transformedLeads as unknown as Lead[]);
-        setCurrentPage(1); // Reset to first page when leads change
-      } catch (err) {
-        console.error('❌ Error fetching leads:', err);
-        
-        if (err instanceof TypeError && err.message === 'Failed to fetch') {
-          console.log('⚠️ Backend not available, using empty leads list');
-          setLeads([]);
-          setError('Backend server is not available. Please ensure Strapi is running.');
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unexpected error occurred while fetching leads.');
+            id: doc.id,
+            attributes: {
+              Name: doc.attributes?.name || doc.attributes?.Name || doc.name || doc.Name || 'Document',
+              url: doc.attributes?.url || doc.url || '',
+              alternativeText: doc.attributes?.alternativeText || doc.alternativeText || '',
+              caption: doc.attributes?.caption || doc.caption || '',
+              width: doc.attributes?.width || doc.width || null,
+              height: doc.attributes?.height || doc.height || null,
+              formats: doc.attributes?.formats || doc.formats || null,
+              hash: doc.attributes?.hash || doc.hash || '',
+              ext: doc.attributes?.ext || doc.ext || '',
+              mime: doc.attributes?.mime || doc.mime || 'application/octet-stream',
+              size: doc.attributes?.size || doc.size || 0,
+              previewUrl: doc.attributes?.previewUrl || doc.previewUrl || '',
+              provider: doc.attributes?.provider || doc.provider || '',
+              provider_metadata: doc.attributes?.provider_metadata || doc.provider_metadata || null,
+              createdAt: doc.attributes?.createdAt || doc.createdAt || '',
+              updatedAt: doc.attributes?.updatedAt || doc.updatedAt || ''
+            }
+          }));
         }
-      } finally {
-        setLoading(false);
-      }
-    };
 
+        return {
+          id: lead.id,
+          documentId: lead.documentId || '',
+          Name: lead.Name || '',
+          Email: lead.Email || '',
+          Phone: lead.Phone || '',
+          Notes: lead.Notes || '',
+          Source: lead.Source || '',
+          LeadStatus: lead.LeadStatus || 'New Lead',
+          Courses: lead.Courses || '',
+          Date: lead.Date || '',
+          createdAt: lead.createdAt || '',
+          updatedAt: lead.updatedAt || '',
+          publishedAt: lead.publishedAt || null,
+          locale: lead.locale || null,
+          Country: lead.Country || null,
+          Documents: transformedDocuments
+        };
+      });
+
+      console.log('✅ Transformed leads with documents:', transformedLeads);
+      setLeads(transformedLeads as unknown as Lead[]);
+      setCurrentPage(1); // Reset to first page when leads change
+    } catch (err) {
+      console.error('❌ Error fetching leads:', err);
+
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        console.log('⚠️ Backend not available, using empty leads list');
+        setLeads([]);
+        setError('Backend server is not available. Please ensure Strapi is running.');
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred while fetching leads.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLeads();
   }, []);
 
@@ -352,12 +406,12 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   useEffect(() => {
     if (leads.length > 0) {
       console.log('📚 Processing documents for leads...');
-      
+
       // Process and validate documents for each lead
       const processedLeads = leads.map(lead => {
         if (lead.Documents && Array.isArray(lead.Documents)) {
           console.log(`📄 Lead ${lead.Name} has ${lead.Documents.length} documents`);
-          
+
           // Validate and process each document
           const processedDocuments = lead.Documents
             .filter(doc => doc && doc.attributes) // Filter out invalid documents first
@@ -365,7 +419,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               console.log(`  - Document: ${doc.attributes.Name}, Type: ${doc.attributes.mime}, Size: ${formatFileSize(doc.attributes.size)}`);
               return doc;
             });
-          
+
           return {
             ...lead,
             Documents: processedDocuments
@@ -378,13 +432,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           };
         }
       });
-      
+
       // Only update if there are actual changes to avoid infinite loops
       const hasChanges = processedLeads.some((processedLead, index) => {
         const originalLead = leads[index];
         return JSON.stringify(processedLead.Documents) !== JSON.stringify(originalLead.Documents);
       });
-      
+
       if (hasChanges) {
         console.log('🔄 Updating leads with processed documents...');
         setLeads(processedLeads);
@@ -406,19 +460,29 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       leads.forEach(lead => {
         if (lead.Documents && lead.Documents.length > 0) {
           lead.Documents.forEach(doc => {
-            // Validate document structure
-            if (!doc.id || !doc.attributes) {
-              console.error(`❌ Invalid document structure for lead ${lead.Name}:`, doc);
+            // Validate document structure - be more lenient
+            if (!doc.id) {
+              console.warn(`⚠️ Document missing ID for lead ${lead.Name}:`, doc);
             }
-            
-            // Validate required document fields
-            if (!doc.attributes?.Name || !doc.attributes?.url) {
-              console.warn(`⚠️ Missing required fields for document in lead ${lead.Name}:`, doc);
-            }
-            
-            // Log document metadata
-            if (doc.attributes?.mime) {
-              console.log(`📋 Document ${doc.attributes.Name} is type: ${doc.attributes.mime}`);
+
+            // Check if attributes exist, if not, try to fix the structure
+            if (!doc.attributes) {
+              // Try to create attributes from the document itself if it's flat
+              if ((doc as any).url || (doc as any).name) {
+                console.warn(`⚠️ Document missing attributes structure for lead ${lead.Name}, will be handled by component:`, doc);
+              } else {
+                console.warn(`⚠️ Invalid document structure for lead ${lead.Name}:`, doc);
+              }
+            } else {
+              // Validate required document fields
+              if (!doc.attributes?.Name && !doc.attributes?.url) {
+                console.warn(`⚠️ Missing required fields for document in lead ${lead.Name}:`, doc);
+              }
+
+              // Log document metadata
+              if (doc.attributes?.mime) {
+                console.log(`📋 Document ${doc.attributes.Name} is type: ${doc.attributes.mime}`);
+              }
             }
           });
         }
@@ -440,7 +504,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     }
     setSelectedLeads(newSelected);
     setSelectAll(newSelected.size === leads.length);
-    
+
     // Reset to first page if current page becomes invalid
     if (currentPage > Math.ceil(leads.length / leadsPerPage)) {
       setCurrentPage(1);
@@ -456,7 +520,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       setSelectedLeads(new Set(leads.map(lead => lead.id)));
       setSelectAll(true);
     }
-    
+
     // Reset to first page if current page becomes invalid
     if (currentPage > Math.ceil(leads.length / leadsPerPage)) {
       setCurrentPage(1);
@@ -472,7 +536,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   // Handle save edit
   const handleSaveEdit = async (updatedData: Partial<Lead>) => {
     if (!editLead) return;
-    
+
     // Basic validation - only Name, Phone, and Email are required
     if (!updatedData.Name || !updatedData.Phone || !updatedData.Email) {
       alert('Please fill in all required fields (Name, Phone Number, and Email)');
@@ -485,7 +549,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       alert('Please enter a valid email address');
       return;
     }
-    
+
     try {
       const token = realBackendAuthService.getCurrentToken();
       if (!token) {
@@ -507,7 +571,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
       if (response.ok) {
         // Update local state
-        const updatedLeads = leads.map(l => 
+        const updatedLeads = leads.map(l =>
           l.id === editLead.id ? { ...l, ...updatedData } : l
         );
         setLeads(updatedLeads);
@@ -547,19 +611,19 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (response.ok) {
           // Remove lead from local state
           const updatedLeads = leads.filter(l => l.id !== lead.id);
           setLeads(updatedLeads);
-          
+
           // Update selected leads if this lead was selected
           if (selectedLeads.has(lead.id)) {
             const newSelected = new Set(selectedLeads);
             newSelected.delete(lead.id);
             setSelectedLeads(newSelected);
           }
-          
+
           alert(`Lead "${lead.Name}" deleted successfully!`);
         } else {
           alert('Failed to delete lead');
@@ -568,6 +632,149 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         console.error('Error deleting lead:', error);
         alert('Error deleting lead');
       }
+    }
+  };
+
+  // Handle remove duplicates
+  const handleRemoveDuplicates = async () => {
+    try {
+      // Find duplicates by Email (most common identifier)
+      const emailMap = new Map<string, Lead[]>();
+      const phoneMap = new Map<string, Lead[]>();
+
+      leads.forEach(lead => {
+        // Group by email
+        if (lead.Email) {
+          const email = lead.Email.toLowerCase().trim();
+          if (!emailMap.has(email)) {
+            emailMap.set(email, []);
+          }
+          emailMap.get(email)!.push(lead);
+        }
+
+        // Group by phone
+        if (lead.Phone) {
+          const phone = String(lead.Phone).trim();
+          if (!phoneMap.has(phone)) {
+            phoneMap.set(phone, []);
+          }
+          phoneMap.get(phone)!.push(lead);
+        }
+      });
+
+      // Find duplicates (groups with more than 1 lead)
+      const duplicateGroups: { key: string; leads: Lead[]; type: 'email' | 'phone' }[] = [];
+
+      emailMap.forEach((leadList, email) => {
+        if (leadList.length > 1) {
+          duplicateGroups.push({ key: email, leads: leadList, type: 'email' });
+        }
+      });
+
+      phoneMap.forEach((leadList, phone) => {
+        if (leadList.length > 1) {
+          // Only add if not already added as email duplicate
+          const alreadyAdded = duplicateGroups.some(group =>
+            group.leads.some(l => l.id === leadList[0].id)
+          );
+          if (!alreadyAdded) {
+            duplicateGroups.push({ key: phone, leads: leadList, type: 'phone' });
+          }
+        }
+      });
+
+      if (duplicateGroups.length === 0) {
+        alert('No duplicates found!');
+        return;
+      }
+
+      // Calculate total duplicates to remove (keep first, remove rest)
+      let totalToRemove = 0;
+      duplicateGroups.forEach(group => {
+        totalToRemove += group.leads.length - 1; // Keep first, remove rest
+      });
+
+      // Show confirmation with details
+      const duplicateDetails = duplicateGroups.slice(0, 5).map(group => {
+        const keep = group.leads[0];
+        const remove = group.leads.slice(1);
+        return `\n${group.type.toUpperCase()}: ${group.key}\n  Keep: ${keep.Name} (ID: ${keep.id})\n  Remove: ${remove.map(r => `${r.Name} (ID: ${r.id})`).join(', ')}`;
+      }).join('\n');
+
+      const moreCount = duplicateGroups.length > 5 ? `\n... and ${duplicateGroups.length - 5} more duplicate groups` : '';
+
+      const confirmed = confirm(
+        `Found ${duplicateGroups.length} duplicate group(s) with ${totalToRemove} duplicate lead(s) to remove.\n\n` +
+        `Details:${duplicateDetails}${moreCount}\n\n` +
+        `This will keep the first lead in each group and remove the rest.\n\n` +
+        `Do you want to proceed?`
+      );
+
+      if (!confirmed) return;
+
+      const token = realBackendAuthService.getCurrentToken();
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      let removedCount = 0;
+      let failedCount = 0;
+
+      // Remove duplicates (keep first, delete rest)
+      for (const group of duplicateGroups) {
+        const toRemove = group.leads.slice(1); // Keep first, remove rest
+
+        for (const duplicate of toRemove) {
+          try {
+            const response = await fetch(`${strapiUrl}/api/leads/${duplicate.id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+
+            if (response.ok) {
+              removedCount++;
+            } else {
+              failedCount++;
+              console.error(`Failed to delete duplicate lead ${duplicate.id}`);
+            }
+          } catch (error) {
+            failedCount++;
+            console.error(`Error deleting duplicate lead ${duplicate.id}:`, error);
+          }
+        }
+      }
+
+      // Refresh the leads list
+      await fetchLeads();
+
+      // Update local state by removing deleted leads
+      const deletedIds = new Set<number>();
+      for (const group of duplicateGroups) {
+        const toRemove = group.leads.slice(1);
+        toRemove.forEach(lead => deletedIds.add(lead.id));
+      }
+      const updatedLeads = leads.filter(l => !deletedIds.has(l.id));
+      setLeads(updatedLeads);
+
+      // Clear selected leads if any deleted leads were selected
+      const newSelected = new Set(selectedLeads);
+      deletedIds.forEach(id => newSelected.delete(id));
+      setSelectedLeads(newSelected);
+
+      // Show results
+      if (failedCount === 0) {
+        alert(`Successfully removed ${removedCount} duplicate lead(s)!`);
+      } else {
+        alert(`Removed ${removedCount} duplicate lead(s), but ${failedCount} failed to delete. Please refresh the page.`);
+      }
+
+    } catch (error) {
+      console.error('Error removing duplicates:', error);
+      alert('Error removing duplicates. Please try again.');
     }
   };
 
@@ -585,7 +792,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             'Authorization': `Bearer ${token}`,
           } : {},
         });
-        
+
         if (response.ok) {
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
@@ -617,7 +824,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     }
   };
 
-    // Handle view document in modal
+  // Handle view document in modal
   const handleViewDocument = (doc: any) => {
     setSelectedDocument(doc);
     setIsDocumentModalOpen(true);
@@ -628,7 +835,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   // Handle upload documents
   const handleUploadDocuments = async (files: FileList | null, leadId: number) => {
     if (!files || files.length === 0) return;
-    
+
     try {
       const token = realBackendAuthService.getCurrentToken();
       if (!token) {
@@ -640,7 +847,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i]);
       }
-      
+
       // Upload files to Strapi
       const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
       const response = await fetch(`${strapiUrl}/api/upload`, {
@@ -650,17 +857,17 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         },
         body: formData,
       });
-      
+
       if (response.ok) {
         const uploadedFiles = await response.json();
-        
+
         // Get the current lead to see existing documents
         const currentLead = leads.find(lead => lead.id === leadId);
         if (!currentLead) {
           alert('Lead not found');
           return;
         }
-        
+
         // Test: Fetch the current lead from the backend to see its structure
         console.log('🔍 Fetching current lead from backend to check structure...');
         try {
@@ -684,16 +891,16 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         } catch (error) {
           console.error('❌ Error fetching lead from backend:', error);
         }
-        
+
         // Prepare the new documents array for the backend
         const existingDocIds = (currentLead.Documents || []).map(doc => doc.id);
         const newDocIds = uploadedFiles.map((file: any) => file.id);
         const allDocIds = [...existingDocIds, ...newDocIds];
-        
+
         // Update the lead in the backend to associate the documents
         console.log('🔗 Associating documents with lead:', { leadId, allDocIds });
         console.log('📝 Current lead data:', currentLead);
-        
+
         const updatePayload = {
           data: {
             // Keep existing lead data
@@ -710,9 +917,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             Documents: allDocIds
           }
         };
-        
+
         console.log('📤 Sending update payload:', updatePayload);
-        
+
         const updateResponse = await fetch(`http://localhost:1337/api/leads/${leadId}`, {
           method: 'PUT',
           headers: {
@@ -721,13 +928,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           },
           body: JSON.stringify(updatePayload),
         });
-        
+
         console.log('📡 Update response status:', updateResponse.status);
         if (!updateResponse.ok) {
           const errorText = await updateResponse.text();
           console.error('❌ Update failed:', errorText);
         }
-        
+
         if (updateResponse.ok) {
           // Update local state with the new documents
           const updatedLeads = leads.map(lead => {
@@ -742,7 +949,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   size: file.size
                 }
               }));
-              
+
               return {
                 ...lead,
                 Documents: [...existingDocs, ...newDocs]
@@ -750,7 +957,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             }
             return lead;
           });
-          
+
           setLeads(updatedLeads);
           alert('Documents uploaded and associated with lead successfully!');
         } else {
@@ -783,7 +990,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (response.ok) {
           // Get the current lead to update document associations
           const currentLead = leads.find(lead => lead.id === leadId);
@@ -791,15 +998,15 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             alert('Lead not found');
             return;
           }
-          
+
           // Remove the document ID from the lead's documents array
           const updatedDocIds = (currentLead.Documents || [])
             .filter(doc => doc.id !== documentId)
             .map(doc => doc.id);
-          
+
           // Update the lead in the backend to remove the document association
           console.log('🔗 Removing document association from lead:', { leadId, updatedDocIds });
-          
+
           const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
           const updateResponse = await fetch(`${strapiUrl}/api/leads/${leadId}`, {
             method: 'PUT',
@@ -824,13 +1031,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               }
             }),
           });
-          
+
           console.log('📡 Delete update response status:', updateResponse.status);
           if (!updateResponse.ok) {
             const errorText = await updateResponse.text();
             console.error('❌ Delete update failed:', errorText);
           }
-          
+
           if (updateResponse.ok) {
             // Remove document from local state
             const updatedLeads = leads.map(lead => {
@@ -857,10 +1064,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     }
   };
 
-    // Search and filter function
+  // Search and filter function
   const searchLeads = (leads: Lead[], searchTerm: string) => {
     let filteredLeads = leads;
-    
+
     // Apply text search
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
@@ -877,32 +1084,32 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           lead.Courses,
           lead.Notes
         ];
-        
+
         return searchableFields.some(field => {
           if (field === null || field === undefined) return false;
           return String(field).toLowerCase().includes(searchLower);
         });
       });
     }
-    
+
     // Apply status filter
     if (statusFilter) {
       filteredLeads = filteredLeads.filter(lead => lead.LeadStatus === statusFilter);
     }
-    
 
-    
+
+
     // Apply country filter
     if (countryFilter) {
       filteredLeads = filteredLeads.filter(lead => lead.Country === countryFilter);
     }
-    
+
     // Apply date range filter
     if (dateRange.start || dateRange.end) {
       filteredLeads = filteredLeads.filter(lead => {
         const leadDate = new Date(lead.Date || lead.createdAt || '');
         if (isNaN(leadDate.getTime())) return false;
-        
+
         if (dateRange.start && dateRange.end) {
           const startDate = new Date(dateRange.start);
           const endDate = new Date(dateRange.end);
@@ -914,25 +1121,25 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           const endDate = new Date(dateRange.end);
           return leadDate <= endDate;
         }
-        
+
         return true;
       });
     }
-    
+
     return filteredLeads;
   };
 
   // Sorting function
   const sortLeads = (leads: Lead[]) => {
     if (!sortConfig.key) return leads;
-    
+
     return [...leads].sort((a, b) => {
       const aValue = a[sortConfig.key!];
       const bValue = b[sortConfig.key!];
-      
+
       if (aValue === null || aValue === undefined) return 1;
       if (bValue === null || bValue === undefined) return -1;
-      
+
       let comparison = 0;
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         comparison = aValue.localeCompare(bValue);
@@ -941,7 +1148,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       } else {
         comparison = String(aValue).localeCompare(String(bValue));
       }
-      
+
       return sortConfig.direction === 'asc' ? comparison : -comparison;
     });
   };
@@ -963,6 +1170,26 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     }));
   };
 
+  // Toggle all columns visibility (select all / deselect all)
+  const toggleSelectAll = () => {
+    const allSelected = Object.values(visibleColumns).every(v => v === true);
+    const newState = !allSelected; // If all selected, deselect all; otherwise select all
+
+    setVisibleColumns({
+      Name: newState,
+      Phone: newState,
+      Email: newState,
+      Status: newState,
+      Country: newState,
+      Source: newState,
+      Date: newState,
+      Course: newState,
+      Notes: newState,
+      Documents: newState,
+      Actions: newState
+    });
+  };
+
   // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
@@ -981,7 +1208,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         </svg>
       );
     }
-    
+
     if (sortConfig.direction === 'asc') {
       return (
         <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -989,7 +1216,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         </svg>
       );
     }
-    
+
     return (
       <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1000,13 +1227,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   // Pagination logic
   const searchedLeads = searchLeads(leads, searchTerm);
   const totalPages = Math.ceil(searchedLeads.length / leadsPerPage);
-  
+
   // Ensure current page is valid
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages || 1);
   if (validCurrentPage !== currentPage) {
     setCurrentPage(validCurrentPage);
   }
-  
+
   const indexOfLastLead = validCurrentPage * leadsPerPage;
   const indexOfFirstLead = indexOfLastLead - leadsPerPage;
   const sortedLeads = sortLeads(searchedLeads);
@@ -1032,7 +1259,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     fileInput.type = 'file';
     fileInput.accept = '.xlsx,.xls,.xlsm,.xlsb,.csv,.tsv';
     fileInput.style.display = 'none';
-    
+
     fileInput.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
@@ -1041,7 +1268,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       // Clean up
       document.body.removeChild(fileInput);
     };
-    
+
     document.body.appendChild(fileInput);
     fileInput.click();
     setShowAddLeadDropdown(false);
@@ -1051,7 +1278,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   const handleDownloadExcel = (type: 'full' | 'selected') => {
     try {
       let dataToExport: Lead[];
-      
+
       if (type === 'selected') {
         if (selectedLeads.size === 0) {
           alert('Please select at least one lead to export');
@@ -1061,12 +1288,12 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       } else {
         dataToExport = leads;
       }
-      
+
       if (dataToExport.length === 0) {
         alert('No data to export');
         return;
       }
-      
+
       // Prepare data for export
       const exportData = dataToExport.map(lead => ({
         Name: lead.Name || '',
@@ -1080,12 +1307,12 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         Courses: lead.Courses || '',
         'Documents Count': lead.Documents?.length || 0
       }));
-      
+
       // Convert to CSV
       const headers = Object.keys(exportData[0]);
       const csvContent = [
         headers.join(','),
-        ...exportData.map(row => 
+        ...exportData.map(row =>
           headers.map(header => {
             const value = row[header as keyof typeof row];
             // Escape commas and quotes in CSV
@@ -1096,7 +1323,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           }).join(',')
         )
       ].join('\n');
-      
+
       // Create and download file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
@@ -1107,9 +1334,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       alert(`Successfully exported ${dataToExport.length} leads to Excel-compatible CSV format!`);
-      
+
     } catch (error) {
       console.error('Error exporting data:', error);
       alert('Error exporting data');
@@ -1124,10 +1351,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       ['John Doe', 'john@example.com', '+1234567890', 'United States', 'New Lead', 'Website', '2024-01-15', 'Interested in web development', 'Web Development'],
       ['Jane Smith', 'jane@example.com', '+1987654321', 'Canada', 'Contacted', 'Social Media', '2024-01-16', 'Looking for mobile development course', 'Mobile Development']
     ];
-    
+
     // Create CSV content
     const csvContent = templateData.map(row => row.join(',')).join('\n');
-    
+
     // Create and download file
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -1138,12 +1365,12 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    
+
     alert('CSV template downloaded! You can:\n\n' +
-          '1. Open this in Excel/Google Sheets\n' +
-          '2. Fill in your data\n' +
-          '3. Save as .csv, .xlsx, .xls, .xlsm, or .xlsb\n' +
-          '4. Upload back to the system');
+      '1. Open this in Excel/Google Sheets\n' +
+      '2. Fill in your data\n' +
+      '3. Save as .csv, .xlsx, .xls, .xlsm, or .xlsb\n' +
+      '4. Upload back to the system');
   };
 
   // Handle save new lead
@@ -1179,8 +1406,21 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
       if (response.ok) {
         const newLead = await response.json();
-        let finalLeadData = newLead.data;
-        
+        console.log('✅ Lead created successfully:', newLead);
+
+        // Extract lead ID - handle both response formats
+        const leadId = newLead.data?.id || newLead.id;
+        if (!leadId) {
+          console.error('❌ No lead ID in response:', newLead);
+          alert('Lead created but could not get ID. Please refresh the page.');
+          fetchLeads();
+          setIsAddLeadFormOpen(false);
+          return;
+        }
+
+        console.log('📋 Lead ID:', leadId);
+        let finalLeadData = newLead.data || newLead;
+
         // Upload documents if any were selected
         if (files.length > 0) {
           try {
@@ -1200,13 +1440,19 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
             if (uploadResponse.ok) {
               const uploadedFiles = await uploadResponse.json();
-              console.log('Documents uploaded successfully:', uploadedFiles);
-              
-              // Associate the uploaded documents with the new lead
-              const documentIds = uploadedFiles.map((file: any) => file.id);
-              
+              console.log('📄 Documents uploaded successfully:', uploadedFiles);
+
+              // Handle both single file and array responses
+              const filesArray = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
+              const documentIds = filesArray.map((file: any) => file.id || file.data?.id);
+
+              console.log('🔗 Document IDs to associate:', documentIds);
+
+              // Wait a bit for the lead to be fully persisted
+              await new Promise(resolve => setTimeout(resolve, 500));
+
               const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
-              const updateLeadResponse = await fetch(`${strapiUrl}/api/leads/${newLead.data.id}`, {
+              const updateLeadResponse = await fetch(`${strapiUrl}/api/leads/${leadId}`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -1214,83 +1460,118 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 },
                 body: JSON.stringify({
                   data: {
-                    Name: formData.Name,
-                    Phone: formData.Phone,
-                    Email: formData.Email,
-                    LeadStatus: formData.LeadStatus || 'New Lead',
-                    Country: formData.Country,
-                    Source: formData.Source,
-                    Date: formData.Date,
-                    Notes: formData.Notes,
-                    Courses: formData.Courses,
                     Documents: documentIds
                   }
                 }),
               });
-              
+
+              console.log('📤 Update lead response status:', updateLeadResponse.status);
+
               if (updateLeadResponse.ok) {
-                console.log('Documents associated with lead successfully');
-                
-                // Fetch the updated lead with populated Documents field
-                const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
-                const fetchUpdatedLeadResponse = await fetch(`${strapiUrl}/api/leads/${newLead.data.id}?populate=Documents`, {
-                  method: 'GET',
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                  },
-                });
-                
-                console.log('📥 Fetch updated lead response status:', fetchUpdatedLeadResponse.status);
-                
-                if (fetchUpdatedLeadResponse.ok) {
-                  const updatedLeadData = await fetchUpdatedLeadResponse.json();
-                  console.log('✅ Fetched updated lead with documents:', updatedLeadData);
-                  
-                  // Transform the response to match our interface
-                  const documentsData = updatedLeadData.data.Documents || [];
-                  const transformedDocuments = documentsData.map((doc: any) => ({
-                    id: doc.id,
-                    attributes: {
-                      Name: doc.name || doc.Name || 'Document',
-                      url: doc.url || '',
-                      alternativeText: doc.alternativeText || '',
-                      caption: doc.caption || '',
-                      width: doc.width || null,
-                      height: doc.height || null,
-                      formats: doc.formats || null,
-                      hash: doc.hash || '',
-                      ext: doc.ext || '',
-                      mime: doc.mime || '',
-                      size: doc.size || 0,
-                      previewUrl: doc.previewUrl || '',
-                      provider: doc.provider || '',
-                      provider_metadata: doc.provider_metadata || null,
-                      createdAt: doc.createdAt || '',
-                      updatedAt: doc.updatedAt || ''
+                const updateResult = await updateLeadResponse.json();
+                console.log('✅ Documents associated with lead successfully:', updateResult);
+
+                // Transform documents from uploaded files to match our interface
+                const transformedDocuments = filesArray.map((file: any) => ({
+                  id: file.id || file.data?.id,
+                  attributes: {
+                    Name: file.name || file.attributes?.name || 'Document',
+                    url: file.url || file.attributes?.url || '',
+                    alternativeText: file.alternativeText || file.attributes?.alternativeText || '',
+                    caption: file.caption || file.attributes?.caption || '',
+                    width: file.width || file.attributes?.width || null,
+                    height: file.height || file.attributes?.height || null,
+                    formats: file.formats || file.attributes?.formats || null,
+                    hash: file.hash || file.attributes?.hash || '',
+                    ext: file.ext || file.attributes?.ext || '',
+                    mime: file.mime || file.attributes?.mime || '',
+                    size: file.size || file.attributes?.size || 0,
+                    previewUrl: file.previewUrl || file.attributes?.previewUrl || '',
+                    provider: file.provider || file.attributes?.provider || '',
+                    provider_metadata: file.provider_metadata || file.attributes?.provider_metadata || null,
+                    createdAt: file.createdAt || file.attributes?.createdAt || new Date().toISOString(),
+                    updatedAt: file.updatedAt || file.attributes?.updatedAt || new Date().toISOString()
+                  }
+                }));
+
+                // Use the update result data and add transformed documents
+                finalLeadData = {
+                  ...(updateResult.data || updateResult || finalLeadData),
+                  Documents: transformedDocuments
+                };
+
+                console.log('✅ Lead data with documents prepared:', finalLeadData);
+
+                // Try to fetch the updated lead, but don't fail if it doesn't work
+                try {
+                  await new Promise(resolve => setTimeout(resolve, 500));
+
+                  const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+                  const fetchUpdatedLeadResponse = await fetch(`${strapiUrl}/api/leads/${leadId}?populate=Documents`, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  });
+
+                  if (fetchUpdatedLeadResponse.ok) {
+                    const updatedLeadData = await fetchUpdatedLeadResponse.json();
+                    console.log('✅ Fetched updated lead with documents:', updatedLeadData);
+
+                    // Transform the response to match our interface
+                    const documentsData = updatedLeadData.data?.Documents || updatedLeadData.Documents || [];
+                    const fetchedTransformedDocuments = documentsData.map((doc: any) => ({
+                      id: doc.id,
+                      attributes: {
+                        Name: doc.name || doc.Name || doc.attributes?.name || 'Document',
+                        url: doc.url || doc.attributes?.url || '',
+                        alternativeText: doc.alternativeText || doc.attributes?.alternativeText || '',
+                        caption: doc.caption || doc.attributes?.caption || '',
+                        width: doc.width || doc.attributes?.width || null,
+                        height: doc.height || doc.attributes?.height || null,
+                        formats: doc.formats || doc.attributes?.formats || null,
+                        hash: doc.hash || doc.attributes?.hash || '',
+                        ext: doc.ext || doc.attributes?.ext || '',
+                        mime: doc.mime || doc.attributes?.mime || '',
+                        size: doc.size || doc.attributes?.size || 0,
+                        previewUrl: doc.previewUrl || doc.attributes?.previewUrl || '',
+                        provider: doc.provider || doc.attributes?.provider || '',
+                        provider_metadata: doc.provider_metadata || doc.attributes?.provider_metadata || null,
+                        createdAt: doc.createdAt || doc.attributes?.createdAt || '',
+                        updatedAt: doc.updatedAt || doc.attributes?.updatedAt || ''
+                      }
+                    }));
+
+                    // Use fetched data if available, otherwise keep the transformed documents
+                    if (fetchedTransformedDocuments.length > 0) {
+                      finalLeadData = {
+                        ...(updatedLeadData.data || updatedLeadData),
+                        Documents: fetchedTransformedDocuments
+                      };
                     }
-                  }));
-                  
-                  finalLeadData = {
-                    ...updatedLeadData.data,
-                    Documents: transformedDocuments
-                  };
-                } else {
-                  const errorText = await fetchUpdatedLeadResponse.text();
-                  console.error('❌ Failed to fetch updated lead with documents. Status:', fetchUpdatedLeadResponse.status);
-                  console.error('❌ Error response:', errorText);
-                  // Continue anyway - lead was created, just documents might not be visible immediately
-                  console.log('⚠️ Continuing - lead was created successfully, refresh to see documents');
+                  } else {
+                    // Silently continue - we already have the documents from upload
+                    console.log('⚠️ Could not fetch updated lead, using uploaded document data');
+                  }
+                } catch (fetchError) {
+                  // Silently continue - we already have the documents from upload
+                  console.log('⚠️ Error fetching updated lead, using uploaded document data:', fetchError);
                 }
               } else {
-                console.error('Failed to associate documents with lead');
+                const updateErrorText = await updateLeadResponse.text();
+                console.error('❌ Failed to associate documents with lead. Status:', updateLeadResponse.status);
+                console.error('❌ Error response:', updateErrorText);
+                console.error('❌ Lead ID used:', leadId);
+                alert('Lead created, but failed to attach documents. You can upload documents later by editing the lead.');
               }
             } else {
               const uploadError = await uploadResponse.text();
-              console.error('Failed to upload documents. Error:', uploadError);
+              console.error('❌ Failed to upload documents. Status:', uploadResponse.status);
+              console.error('❌ Error response:', uploadError);
               alert('Lead created, but document upload failed. You can upload documents later by editing the lead.');
             }
           } catch (uploadError) {
-            console.error('Error uploading documents:', uploadError);
+            console.error('❌ Error uploading documents:', uploadError);
             alert('Lead created, but document upload encountered an error. You can upload documents later.');
           }
         }
@@ -1314,7 +1595,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     try {
       const fileExtension = file.name.toLowerCase().split('.').pop();
       console.log('📁 Processing file:', file.name, 'Type:', fileExtension);
-      
+
       if (fileExtension === 'csv' || fileExtension === 'tsv') {
         // Handle CSV/TSV files
         await handleCSVUpload(file, fileExtension);
@@ -1322,7 +1603,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         // Handle Excel files
         await handleExcelFileUpload(file);
       }
-      
+
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Error processing file');
@@ -1336,41 +1617,41 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       try {
         const content = e.target?.result as string;
         const delimiter = fileType === 'tsv' ? '\t' : ',';
-        
+
         // Parse CSV/TSV content
         const lines = content.split('\n').filter(line => line.trim());
-        
+
         if (lines.length < 2) {
           alert('CSV/TSV file must have at least a header row and one data row');
           return;
         }
-        
+
         // Parse headers
         const headers = lines[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
         console.log('📊 CSV/TSV headers:', headers);
-        
+
         // Parse data rows
         const leads = lines.slice(1).map((line, index) => {
           const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
           const lead: any = {};
-          
+
           headers.forEach((header, colIndex) => {
             if (header && values[colIndex] !== undefined) {
               const fieldName = mapHeaderToField(header);
               lead[fieldName] = values[colIndex];
             }
           });
-          
+
           return lead;
         });
-        
+
         console.log('📋 Parsed leads from CSV/TSV:', leads);
-        
+
         if (leads.length === 0) {
           alert('No valid data found in CSV/TSV file');
           return;
         }
-        
+
         // Show preview and ask for confirmation
         const confirmed = confirm(
           `Found ${leads.length} leads in ${fileType.toUpperCase()} file.\n\n` +
@@ -1380,17 +1661,17 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           `Phone: ${leads[0].Phone || 'N/A'}\n\n` +
           `Do you want to import all leads?`
         );
-        
+
         if (confirmed) {
           await importLeadsFromExcel(leads);
         }
-        
+
       } catch (parseError) {
         console.error('Error parsing CSV/TSV file:', parseError);
         alert('Error parsing CSV/TSV file. Please ensure it\'s a valid file.');
       }
     };
-    
+
     reader.readAsText(file);
   };
 
@@ -1399,50 +1680,50 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     try {
       // Import XLSX dynamically to avoid SSR issues
       const XLSX = await import('xlsx');
-      
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
-          
+
           // Get the first sheet
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          
+
           // Convert sheet to JSON
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
+
           if (jsonData.length < 2) {
             alert('Excel file must have at least a header row and one data row');
             return;
           }
-          
+
           // Get headers from first row
           const headers = jsonData[0] as string[];
           console.log('📊 Excel headers:', headers);
-          
+
           // Process data rows (skip header row)
           const leads = jsonData.slice(1).map((row: any, index: number) => {
             const lead: any = {};
-            
+
             headers.forEach((header, colIndex) => {
               if (header && row[colIndex] !== undefined) {
                 const fieldName = mapHeaderToField(header);
                 lead[fieldName] = row[colIndex];
               }
             });
-            
+
             return lead;
           });
-          
+
           console.log('📋 Parsed leads from Excel:', leads);
-          
+
           if (leads.length === 0) {
             alert('No valid data found in Excel file');
             return;
           }
-          
+
           // Show preview and ask for confirmation
           const confirmed = confirm(
             `Found ${leads.length} leads in Excel file.\n\n` +
@@ -1452,19 +1733,19 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             `Phone: ${leads[0].Phone || 'N/A'}\n\n` +
             `Do you want to import all leads?`
           );
-          
+
           if (confirmed) {
             await importLeadsFromExcel(leads);
           }
-          
+
         } catch (parseError) {
           console.error('Error parsing Excel file:', parseError);
           alert('Error parsing Excel file. Please ensure it\'s a valid Excel file.');
         }
       };
-      
+
       reader.readAsArrayBuffer(file);
-      
+
     } catch (error) {
       console.error('Error processing Excel file:', error);
       alert('Error processing Excel file');
@@ -1474,7 +1755,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   // Helper function to map headers to field names
   const mapHeaderToField = (header: string): string => {
     const normalizedHeader = header.toLowerCase().trim();
-    
+
     if (normalizedHeader.includes('name') || normalizedHeader === 'full name') {
       return 'Name';
     } else if (normalizedHeader.includes('email') || normalizedHeader === 'e-mail') {
@@ -1510,7 +1791,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
       let successCount = 0;
       let errorCount = 0;
-      
+
       for (const lead of leads) {
         try {
           // Validate required fields
@@ -1519,7 +1800,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             errorCount++;
             continue;
           }
-          
+
           // Validate email format
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(lead.Email)) {
@@ -1527,23 +1808,48 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             errorCount++;
             continue;
           }
-          
-          // Prepare lead data with defaults
-          const leadData = {
+
+          // Clean phone number — schema expects biginteger (digits only)
+          const rawPhone = String(lead.Phone || '').trim();
+          const cleanedPhone = rawPhone.replace(/[^0-9]/g, '');
+
+          // Valid enum values from schema
+          const validStatuses = ['New Lead', 'Contacted', 'Potential Student', 'Student', 'Student ', 'Not Interested'];
+          const validCourses = ['General English', 'Level 3 Business Management', 'Level 3 Law', 'Level 3 Health and Social Care', 'Level 3 Information Technology'];
+          const validCountries = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"];
+
+          // Match enum values (case-insensitive)
+          const matchEnum = (value: string, validValues: string[]) => {
+            if (!value) return null;
+            const trimmed = value.trim();
+            return validValues.find(v => v.trim().toLowerCase() === trimmed.toLowerCase()) || null;
+          };
+
+          const matchedStatus = matchEnum(lead.LeadStatus || '', validStatuses);
+          const matchedCountry = matchEnum(lead.Country || '', validCountries);
+          const matchedCourses = matchEnum(lead.Courses || '', validCourses);
+
+          // Prepare lead data with defaults — only include valid enum values
+          const leadData: any = {
             Name: lead.Name?.trim() || '',
             Email: lead.Email?.trim() || '',
-            Phone: lead.Phone?.trim() || '',
-            LeadStatus: lead.LeadStatus?.trim() || 'New Lead',
-            Country: lead.Country?.trim() || '',
+            Phone: cleanedPhone || null,
+            LeadStatus: matchedStatus || 'New Lead',
             Source: lead.Source?.trim() || '',
             Date: lead.Date || new Date().toISOString().split('T')[0],
             Notes: lead.Notes?.trim() || '',
-            Courses: lead.Courses?.trim() || ''
+            publishedAt: new Date().toISOString(),
           };
-          
+
+          // Only set enum fields if we have valid values (empty string causes validation error)
+          if (matchedCountry) leadData.Country = matchedCountry;
+          if (matchedCourses) leadData.Courses = matchedCourses;
+
+          console.log('📤 Sending lead data:', leadData);
+
           // Create lead in Strapi
           const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
-      const response = await fetch(`${strapiUrl}/api/leads`, {
+          const response = await fetch(`${strapiUrl}/api/leads`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1553,12 +1859,12 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               data: leadData
             }),
           });
-          
+
           if (response.ok) {
             const newLead = await response.json();
             console.log('✅ Lead imported successfully:', newLead.data);
             successCount++;
-            
+
             // Add to local state
             setLeads(prev => [...prev, newLead.data]);
           } else {
@@ -1566,26 +1872,26 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             console.error('❌ Failed to import lead:', errorText);
             errorCount++;
           }
-          
+
           // Small delay to avoid overwhelming the API
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
         } catch (leadError) {
           console.error('❌ Error importing lead:', leadError);
           errorCount++;
         }
       }
-      
+
       // Show final results
       const message = `Import completed!\n\n` +
         `✅ Successfully imported: ${successCount} leads\n` +
         `❌ Failed to import: ${errorCount} leads`;
-      
+
       alert(message);
-      
+
       // Refresh leads list by triggering a re-fetch
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error during bulk import:', error);
       alert('Error during bulk import');
@@ -1598,7 +1904,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       alert('Please select at least one lead');
       return;
     }
-    
+
     const selectedLeadIds = Array.from(selectedLeads);
     const selectedLeadNames = leads
       .filter(lead => selectedLeads.has(lead.id))
@@ -1616,25 +1922,25 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
           // Delete all selected leads
           const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
-          const deletePromises = selectedLeadIds.map(id => 
-            fetch(`${strapiUrl}/api/leads/${id}`, { 
+          const deletePromises = selectedLeadIds.map(id =>
+            fetch(`${strapiUrl}/api/leads/${id}`, {
               method: 'DELETE',
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
             })
           );
-          
+
           const results = await Promise.all(deletePromises);
           const successCount = results.filter(r => r.ok).length;
-          
+
           if (successCount > 0) {
             // Remove deleted leads from local state
             const updatedLeads = leads.filter(lead => !selectedLeads.has(lead.id));
             setLeads(updatedLeads);
             setSelectedLeads(new Set());
             setSelectAll(false);
-            
+
             alert(`Successfully deleted ${successCount} out of ${selectedLeads.size} leads!`);
           } else {
             alert('Failed to delete any leads');
@@ -1663,7 +1969,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               lead.Notes || ''
             ])
         ];
-        
+
         const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -1674,7 +1980,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
+
         alert(`Exported ${selectedLeads.size} leads successfully!`);
       } catch (error) {
         console.error('Error exporting leads:', error);
@@ -1691,7 +1997,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   }> = ({ lead, onSave, onCancel }) => {
     // Get the current lead data from the state to ensure we have the latest documents
     const currentLead = leads.find(l => l.id === lead.id) || lead;
-    
+
     const [formData, setFormData] = useState({
       Name: currentLead.Name || '',
       Phone: currentLead.Phone || '',
@@ -1706,20 +2012,20 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       // Validate required fields
       if (!formData.Name.trim() || !formData.Phone.trim() || !formData.Email.trim()) {
         alert('Please fill in all required fields (Name, Phone, Email)');
         return;
       }
-      
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.Email)) {
         alert('Please enter a valid email address');
         return;
       }
-      
+
       try {
         const token = realBackendAuthService.getCurrentToken();
         if (!token) {
@@ -1749,17 +2055,17 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             }
           }),
         });
-        
+
         if (response.ok) {
           // Update local state
           const updatedLead = await response.json();
-          const updatedLeads = leads.map(l => 
-            l.id === lead.id 
+          const updatedLeads = leads.map(l =>
+            l.id === lead.id
               ? { ...l, ...formData, id: l.id }
               : l
           );
           setLeads(updatedLeads);
-          
+
           alert('Lead updated successfully!');
           onSave(formData);
         } else {
@@ -1840,7 +2146,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Personal Info</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="name" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Name *</Label>
@@ -1902,7 +2208,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Lead Details</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="status" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Status</Label>
@@ -1925,13 +2231,20 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
 
                 <div>
-                  <Label htmlFor="date" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.Date ? new Date(formData.Date).toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleChange('Date', e.target.value)}
-                    className="border-gray-200 focus:border-green-400 focus:ring-green-100 text-sm py-1.5 w-full"
+                  <DatePicker
+                    id="edit-lead-date"
+                    label="Date"
+                    placeholder="Select date"
+                    defaultDate={formData.Date ? new Date(formData.Date) : undefined}
+                    onChange={(selectedDates, dateStr) => {
+                      if (selectedDates && selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const formattedDate = date.toISOString().split('T')[0];
+                        handleChange('Date', formattedDate);
+                      } else if (dateStr) {
+                        handleChange('Date', dateStr);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -1947,7 +2260,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs">Course</h4>
               </div>
-              
+
               <Select
                 options={courseOptions}
                 value={formData.Courses}
@@ -1968,7 +2281,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Notes & Comments</h4>
               </div>
-              
+
               <textarea
                 id="notes"
                 value={formData.Notes}
@@ -2013,7 +2326,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               </label>
             </div>
           </div>
-          
+
           <div className="mt-1">
             {currentLead.Documents && currentLead.Documents.length > 0 ? (
               <div className="grid grid-cols-3 gap-2">
@@ -2119,26 +2432,26 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       Notes: '',
       Courses: 'General English' as const
     });
-    
+
     // Move selectedFiles state into the form component
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       // Validate required fields
       if (!formData.Name.trim() || !formData.Phone.trim() || !formData.Email.trim()) {
         alert('Please fill in all required fields (Name, Phone, Email)');
         return;
       }
-      
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.Email)) {
         alert('Please enter a valid email address');
         return;
       }
-      
+
       onSave(formData, selectedFiles);
     };
 
@@ -2207,7 +2520,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Personal Info</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="name" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Name *</Label>
@@ -2266,7 +2579,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Lead Details</h4>
               </div>
-              
+
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="status" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Status</Label>
@@ -2287,13 +2600,20 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   />
                 </div>
                 <div>
-                  <Label htmlFor="date" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.Date}
-                    onChange={(e) => handleChange('Date', e.target.value)}
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                  <DatePicker
+                    id="add-lead-date"
+                    label="Date"
+                    placeholder="Select date"
+                    defaultDate={formData.Date ? new Date(formData.Date) : undefined}
+                    onChange={(selectedDates, dateStr) => {
+                      if (selectedDates && selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const formattedDate = date.toISOString().split('T')[0];
+                        handleChange('Date', formattedDate);
+                      } else if (dateStr) {
+                        handleChange('Date', dateStr);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -2309,17 +2629,17 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Course</h4>
               </div>
-              
+
               <Select
                 options={courseOptions}
                 value={formData.Courses}
                 onChange={(value) => handleChange('Courses', value)}
                 placeholder="Select course"
-                  />
-                </div>
-              </div>
+              />
+            </div>
+          </div>
 
-                        {/* Third Column - Notes */}
+          {/* Third Column - Notes */}
           <div className="space-y-2">
             <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
               <div className="flex items-center gap-2 mb-2">
@@ -2330,7 +2650,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Notes & Comments</h4>
               </div>
-              
+
               <textarea
                 value={formData.Notes}
                 onChange={(e) => handleChange('Notes', e.target.value)}
@@ -2352,7 +2672,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               </div>
               <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Documents & Files</h4>
             </div>
-            
+
             {/* Document Upload Button */}
             <div className="mb-3">
               <input
@@ -2458,17 +2778,18 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800">
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 w-full max-w-full overflow-hidden min-w-0">
       {/* Table Header - Controls and Bulk Actions */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between mb-4">
-          {/* Left side - Table Controls */}
-          <div className="flex items-center gap-3">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+        {/* Toolbar Row: Search/Filters on Left, Action Buttons on Right */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* Left side - Columns, Search and Filters */}
+          <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
             {/* Column Visibility Dropdown */}
             <div className="relative column-dropdown">
               <button
                 onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-700 dark:text-gray-300"
+                className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-600/30 text-gray-700 dark:text-gray-300 transition-colors shadow-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -2478,313 +2799,320 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              
+
               {/* Column Dropdown Menu */}
               {showColumnDropdown && (
                 <div className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                   <div className="p-2">
                     <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Toggle Columns</h4>
                     {Object.entries(visibleColumns).map(([column, isVisible]) => (
-                      <label key={column} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                      <label key={column} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
                         <input
                           type="checkbox"
                           checked={isVisible}
                           onChange={() => toggleColumn(column)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">{column}</span>
                       </label>
                     ))}
+                    {/* Select All Option - At the bottom with blue highlight */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                      <label
+                        onClick={toggleSelectAll}
+                        className="flex items-center gap-2 px-2 py-1.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Object.values(visibleColumns).every(v => v === true)}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Select All</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-            
-            {/* Search Field and Filters */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Search leads..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1); // Reset to first page when searching
-                }}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-48"
-              />
-              
-              {/* Filter Dropdown */}
-              <div className="relative filter-dropdown">
-                <button
-                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                  className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-                  </svg>
-                  Filters
-                  {getActiveFilterCount() > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
-                      {getActiveFilterCount()}
-                    </span>
-                  )}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {/* Filter Dropdown Menu */}
-                {showFilterDropdown && (
-                  <div className="absolute left-0 top-full mt-1 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
-                    <div className="p-4 space-y-4">
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b dark:border-gray-700 pb-2">Advanced Filters</h4>
-                      
-                      {/* Date Range Filter */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Date Range</label>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {dateRange.start && dateRange.end ? `${dateRange.start} to ${dateRange.end}` : 'No date range set'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <DatePicker
-                              id="start-date-filter"
-                              label="Start Date"
-                              placeholder="Start date"
-                              onChange={(selectedDates) => {
-                                if (selectedDates && selectedDates.length > 0) {
-                                  const startDate = selectedDates[0].toISOString().split('T')[0];
-                                  setDateRange(prev => ({ ...prev, start: startDate }));
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="relative">
-                            <DatePicker
-                              id="end-date-filter"
-                              label="End Date"
-                              placeholder="End date"
-                              onChange={(selectedDates) => {
-                                if (selectedDates && selectedDates.length > 0) {
-                                  const endDate = selectedDates[0].toISOString().split('T')[0];
-                                  setDateRange(prev => ({ ...prev, end: endDate }));
-                                }
-                              }}
-                            />
-                           
-                          </div>
-                        </div>
-                        
-                        {/* Quick Date Buttons */}
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => setDateRange({ start: '', end: '' })}
-                            className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-                          >
-                            Clear
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date().toISOString().split('T')[0];
-                              setDateRange({ start: today, end: today });
-                            }}
-                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                          >
-                            Today
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-                              const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-                              setDateRange({ start: firstDay, end: lastDay });
-                            }}
-                            className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                          >
-                            This Month
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
-                              const lastDay = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
-                              setDateRange({ start: firstDay, end: lastDay });
-                            }}
-                            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
-                          >
-                            Last Month
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const firstDay = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
-                              const lastDay = new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0];
-                              setDateRange({ start: firstDay, end: lastDay });
-                            }}
-                            className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
-                          >
-                            This Year
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                              setDateRange({ start: sevenDaysAgo, end: today.toISOString().split('T')[0] });
-                            }}
-                            className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors"
-                          >
-                            Last 7 Days
-                          </button>
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                              setDateRange({ start: thirtyDaysAgo, end: today.toISOString().split('T')[0] });
-                            }}
-                            className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                          >
-                            Last 30 Days
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Status Filter */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-700">Status</label>
-                        <select
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">All Statuses</option>
-                          <option value="New Lead">New Lead</option>
-                          <option value="Contacted">Contacted</option>
-                          <option value="Potential Student">Potential Student</option>
-                          <option value="Student">Student</option>
-                          <option value="Not Interested">Not Interested</option>
-                        </select>
-                      </div>
-                      
 
-                      
-                      {/* Country Filter */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-700">Country</label>
-                        <select
-                          value={countryFilter}
-                          onChange={(e) => setCountryFilter(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">All Countries</option>
-                          <option value="United States">United States</option>
-                          <option value="Canada">Canada</option>
-                          <option value="United Kingdom">United Kingdom</option>
-                          <option value="Germany">Germany</option>
-                          <option value="France">France</option>
-                          <option value="Australia">Australia</option>
-                          <option value="India">India</option>
-                          <option value="China">China</option>
-                          <option value="Japan">Japan</option>
-                          <option value="Brazil">Brazil</option>
-                          <option value="Mexico">Mexico</option>
-                          <option value="South Africa">South Africa</option>
-                          <option value="Nigeria">Nigeria</option>
-                          <option value="Kenya">Kenya</option>
-                          <option value="Egypt">Egypt</option>
-                          <option value="Saudi Arabia">Saudi Arabia</option>
-                          <option value="UAE">UAE</option>
-                          <option value="Other">Other</option>
-                        </select>
+            {/* Search Field */}
+            <input
+              type="text"
+              placeholder="Search leads..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page when searching
+              }}
+              className="px-3.5 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 w-48 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 shadow-sm"
+            />
+
+            {/* Filter Dropdown */}
+            <div className="relative filter-dropdown" style={{ zIndex: 50 }}>
+              <button
+                ref={filterButtonRef}
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className="px-3.5 py-2 text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-600/30 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                </svg>
+                Filters
+                {getActiveFilterCount() > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
+                    {getActiveFilterCount()}
+                  </span>
+                )}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Filter Dropdown Menu - Using Portal to avoid overflow clipping */}
+              {showFilterDropdown && typeof window !== 'undefined' && createPortal(
+                <div
+                  data-filter-dropdown
+                  className="fixed w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-[100] max-h-[calc(85vh-150px)] flex flex-col"
+                  style={{
+                    top: `${filterDropdownPosition.top}px`,
+                    left: `${filterDropdownPosition.left}px`
+                  }}
+                >
+                  <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b dark:border-gray-700 pb-2">Advanced Filters</h4>
+
+                    {/* Date Range Filter */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Date Range</label>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {dateRange.start && dateRange.end ? `${dateRange.start} to ${dateRange.end}` : 'No date range set'}
+                        </span>
                       </div>
-                      
-                      {/* Filter Actions */}
-                      <div className="flex items-center gap-2 pt-2 border-t">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative z-0">
+                          <DatePicker
+                            id="start-date-filter"
+                            label="Start Date"
+                            placeholder="Start date"
+                            hideIcon
+                            defaultDate={dateRange.start ? new Date(dateRange.start + 'T00:00:00') : undefined}
+                            showClearButton={!!dateRange.start}
+                            onClear={() => {
+                              setDateRange(prev => ({ ...prev, start: '' }));
+                            }}
+                            onChange={(selectedDates) => {
+                              if (selectedDates && selectedDates.length > 0) {
+                                const startDate = selectedDates[0].toISOString().split('T')[0];
+                                setDateRange(prev => ({ ...prev, start: startDate }));
+                              } else {
+                                setDateRange(prev => ({ ...prev, start: '' }));
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="relative z-0">
+                          <DatePicker
+                            id="end-date-filter"
+                            label="End Date"
+                            placeholder="End date"
+                            hideIcon
+                            defaultDate={dateRange.end ? new Date(dateRange.end + 'T00:00:00') : undefined}
+                            showClearButton={!!dateRange.end}
+                            onClear={() => {
+                              setDateRange(prev => ({ ...prev, end: '' }));
+                            }}
+                            onChange={(selectedDates) => {
+                              if (selectedDates && selectedDates.length > 0) {
+                                const endDate = selectedDates[0].toISOString().split('T')[0];
+                                setDateRange(prev => ({ ...prev, end: endDate }));
+                              } else {
+                                setDateRange(prev => ({ ...prev, end: '' }));
+                              }
+                            }}
+                          />
+
+                        </div>
+                      </div>
+
+                      {/* Quick Date Buttons */}
+                      <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => {
-                            setDateRange({ start: '', end: '' });
-                            setStatusFilter('');
-                            setCountryFilter('');
-                            setCurrentPage(1);
-                          }}
-                          className="px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          onClick={() => setDateRange({ start: '', end: '' })}
+                          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         >
-                          Clear All
+                          Clear
                         </button>
                         <button
                           onClick={() => {
-                            setShowFilterDropdown(false);
-                            setCurrentPage(1);
+                            const today = new Date().toISOString().split('T')[0];
+                            setDateRange({ start: today, end: today });
                           }}
-                          className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                          className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                         >
-                          Apply Filters
+                          Today
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+                            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+                            setDateRange({ start: firstDay, end: lastDay });
+                          }}
+                          className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                        >
+                          This Month
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
+                            const lastDay = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+                            setDateRange({ start: firstDay, end: lastDay });
+                          }}
+                          className="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                        >
+                          Last Month
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const firstDay = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
+                            const lastDay = new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0];
+                            setDateRange({ start: firstDay, end: lastDay });
+                          }}
+                          className="px-2 py-1 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+                        >
+                          This Year
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                            setDateRange({ start: sevenDaysAgo, end: today.toISOString().split('T')[0] });
+                          }}
+                          className="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+                        >
+                          Last 7 Days
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                            setDateRange({ start: thirtyDaysAgo, end: today.toISOString().split('T')[0] });
+                          }}
+                          className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                        >
+                          Last 30 Days
                         </button>
                       </div>
                     </div>
+
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Status</label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">All Statuses</option>
+                        <option value="New Lead">New Lead</option>
+                        <option value="Contacted">Contacted</option>
+                        <option value="Potential Student">Potential Student</option>
+                        <option value="Student">Student</option>
+                        <option value="Not Interested">Not Interested</option>
+                      </select>
+                    </div>
+
+
+
+                    {/* Country Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Country</label>
+                      <select
+                        value={countryFilter}
+                        onChange={(e) => setCountryFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">All Countries</option>
+                        <option value="United States">United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                        <option value="Germany">Germany</option>
+                        <option value="France">France</option>
+                        <option value="Australia">Australia</option>
+                        <option value="India">India</option>
+                        <option value="China">China</option>
+                        <option value="Japan">Japan</option>
+                        <option value="Brazil">Brazil</option>
+                        <option value="Mexico">Mexico</option>
+                        <option value="South Africa">South Africa</option>
+                        <option value="Nigeria">Nigeria</option>
+                        <option value="Kenya">Kenya</option>
+                        <option value="Egypt">Egypt</option>
+                        <option value="Saudi Arabia">Saudi Arabia</option>
+                        <option value="UAE">UAE</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Search Results and Sort Info */}
-            <div className="flex items-center gap-4">
-              {/* Search Results Info */}
-              {searchTerm && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>Search results:</span>
-                  <span className="font-medium">{searchedLeads.length} of {leads.length} leads</span>
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setCurrentPage(1);
-                    }}
-                    className="text-red-500 hover:text-red-700 text-xs underline"
-                  >
-                    Clear search
-                  </button>
-                </div>
-              )}
-              
-              {/* Sort Info */}
-              {sortConfig.key && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>Sorted by:</span>
-                  <span className="font-medium">{sortConfig.key}</span>
-                  <span className="text-blue-600">
-                    {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                  </span>
-                </div>
+
+                  {/* Filter Actions - Fixed at bottom */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pb-4 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        setDateRange({ start: '', end: '' });
+                        setStatusFilter('');
+                        setCountryFilter('');
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowFilterDropdown(false);
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 text-sm text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>,
+                document.body
               )}
             </div>
           </div>
-          
-          {/* Right side - Actions */}
-          <div className="flex items-center gap-2">
+
+          {/* Right side - Action Buttons and Selected Count */}
+          <div className="flex items-center gap-2.5 flex-shrink-0">
             {selectedLeads.size > 0 && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedLeads.size} lead(s) selected
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm">
+                {selectedLeads.size} lead{selectedLeads.size !== 1 ? 's' : ''} selected
               </span>
             )}
-            
             {/* Add Lead Dropdown */}
             {canCreateLeads() && (
               <div className="relative add-lead-dropdown">
                 <button
                   onClick={() => setShowAddLeadDropdown(!showAddLeadDropdown)}
-                  className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center gap-1"
+                  className="px-3.5 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500/30 transition-all flex items-center gap-1.5 shadow-sm"
+                  title="Add new lead"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  <span>Add Lead</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden md:inline whitespace-nowrap">Add Lead</span>
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-              
-                              {/* Add Lead Dropdown Menu */}
+
+                {/* Add Lead Dropdown Menu */}
                 {showAddLeadDropdown && (
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                     <div className="p-2">
@@ -2820,25 +3148,26 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 )}
               </div>
             )}
-            
+
             {/* Download Excel Dropdown */}
             <div className="relative export-dropdown">
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
+                className="px-3.5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all flex items-center gap-1.5 shadow-sm"
+                title="Download Excel"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Download Excel
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="hidden md:inline whitespace-nowrap">Download Excel</span>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              
+
               {/* Export Dropdown Menu */}
               {showExportDropdown && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                   <div className="p-2">
                     <h4 className="text-xs font-semibold text-gray-700 mb-2 px-2">Download Options</h4>
                     <button
@@ -2859,11 +3188,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                         setShowExportDropdown(false);
                       }}
                       disabled={selectedLeads.size === 0}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${
-                        selectedLeads.size > 0
-                          ? 'text-gray-700 hover:bg-gray-50'
-                          : 'text-gray-400 cursor-not-allowed'
-                      }`}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer transition-colors ${selectedLeads.size > 0
+                        ? 'text-gray-700 hover:bg-gray-50'
+                        : 'text-gray-400 cursor-not-allowed'
+                        }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -2874,28 +3202,35 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </div>
               )}
             </div>
-            
+
             {/* Delete Selected Button */}
             {canDeleteLeads() && (
               <button
                 onClick={() => handleBulkAction('Delete')}
                 disabled={selectedLeads.size === 0}
-                className={`px-3 py-1 text-sm rounded transition-colors ${
-                  selectedLeads.size > 0
-                    ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 focus:outline-none focus:ring-2 shadow-sm ${selectedLeads.size > 0
+                  ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/30'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  }`}
+                title={selectedLeads.size > 0 ? `Delete ${selectedLeads.size} selected lead(s)` : 'No leads selected'}
               >
-                Delete Selected
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span className="hidden md:inline whitespace-nowrap">Delete Selected</span>
+                {selectedLeads.size > 0 && (
+                  <span className="md:hidden">({selectedLeads.size})</span>
+                )}
               </button>
             )}
+
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+      <div className="overflow-x-auto w-full min-w-0">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 w-full">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               {/* Select All Checkbox */}
@@ -2904,13 +3239,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   type="checkbox"
                   checked={selectAll}
                   onChange={handleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 w-4 h-4 cursor-pointer"
                 />
               </th>
-              
+
               {/* Individual Columns */}
               {visibleColumns.Name && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Name')}
                 >
@@ -2920,9 +3255,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Phone && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Phone')}
                 >
@@ -2932,9 +3267,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Email && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Email')}
                 >
@@ -2944,9 +3279,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Status && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('LeadStatus')}
                 >
@@ -2956,9 +3291,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Country && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Country')}
                 >
@@ -2968,9 +3303,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Source && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Source')}
                 >
@@ -2980,9 +3315,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Date && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Date')}
                 >
@@ -2992,9 +3327,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Course && (
-                <th 
+                <th
                   className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('Courses')}
                 >
@@ -3004,10 +3339,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Notes && (
-                <th 
-                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-80"
+                <th
+                  className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 w-80"
                   onClick={() => handleSort('Notes')}
                 >
                   <div className="flex items-center gap-1">
@@ -3016,13 +3351,13 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </div>
                 </th>
               )}
-              
+
               {visibleColumns.Documents && (
                 <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Documents
                 </th>
               )}
-              
+
               {visibleColumns.Actions && (
                 <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
@@ -3066,21 +3401,21 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               </tr>
             ) : (
               currentLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50 transition-colors duration-150">
+                <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
                   {/* Select Checkbox */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selectedLeads.has(lead.id)}
                       onChange={() => handleRowSelect(lead.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 w-4 h-4 cursor-pointer"
                     />
                   </td>
 
                   {/* Name Column */}
                   {visibleColumns.Name && (
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 break-words max-w-[150px]">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white break-words max-w-[150px]">
                         {lead.Name || 'Unknown'}
                       </div>
                     </td>
@@ -3141,7 +3476,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
                   {/* Notes Column */}
                   {visibleColumns.Notes && (
-                    <td className="px-6 py-4 text-sm text-gray-900 w-80">
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white w-80">
                       <div className="whitespace-pre-wrap break-words">
                         {lead.Notes || "No notes"}
                       </div>
@@ -3175,7 +3510,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                       </svg>
                                     </button>
-                                    
+
                                     {/* Download Button */}
                                     <button
                                       onClick={() => handleDownloadDocument(doc)}
@@ -3186,7 +3521,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                                       </svg>
                                     </button>
-                                    
+
                                     {/* Delete Button */}
                                     <button
                                       onClick={() => handleDeleteDocument(doc.id, lead.id)}
@@ -3224,7 +3559,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                             </svg>
                           </button>
                         )}
-                        
+
                         {/* Delete Button - Bin Icon */}
                         {canDeleteLeads() && (
                           <button
@@ -3249,7 +3584,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 bg-white">
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
               Showing <span className="font-medium">{indexOfFirstLead + 1}</span> to{' '}
@@ -3258,17 +3593,16 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               </span>{' '}
               of <span className="font-medium">{leads.length}</span> leads
             </div>
-            
+
             <div className="flex items-center gap-2">
               {/* Previous Page Button */}
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  currentPage === 1
-                    ? 'text-gray-400 cursor-not-allowed bg-gray-100'
-                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                }`}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${currentPage === 1
+                  ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                  }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -3297,17 +3631,16 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   const pages = [];
                   const startPage = Math.max(1, currentPage - 2);
                   const endPage = Math.min(totalPages, currentPage + 2);
-                  
+
                   for (let i = startPage; i <= endPage; i++) {
                     pages.push(
                       <button
                         key={i}
                         onClick={() => handlePageChange(i)}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          i === currentPage
-                            ? 'text-white bg-blue-600 border border-blue-600'
-                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                        }`}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${i === currentPage
+                          ? 'text-white bg-blue-600 border border-blue-600'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                          }`}
                       >
                         {i}
                       </button>
@@ -3336,11 +3669,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  currentPage === totalPages
-                    ? 'text-gray-400 cursor-not-allowed bg-gray-100'
-                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                }`}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${currentPage === totalPages
+                  ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                  }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -3352,7 +3684,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       )}
 
       {/* Table Footer */}
-      <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+      <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-700">
             Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
@@ -3384,10 +3716,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </button>
               </div>
 
-              <EditLeadForm 
-                lead={editLead} 
-                onSave={handleSaveEdit} 
-                onCancel={handleCancelEdit} 
+              <EditLeadForm
+                lead={editLead}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
               />
             </div>
           </div>
@@ -3411,10 +3743,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               </button>
             </div>
 
-                                  <AddLeadForm
-                        onSave={handleSaveNewLead}
-                        onCancel={() => setIsAddLeadFormOpen(false)}
-                      />
+            <AddLeadForm
+              onSave={handleSaveNewLead}
+              onCancel={() => setIsAddLeadFormOpen(false)}
+            />
           </div>
         </div>
       )}
@@ -3438,7 +3770,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {/* Download Button */}
                 <button
@@ -3450,7 +3782,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
                 </button>
-                
+
                 {/* Open in New Tab Button */}
                 <button
                   onClick={() => handleOpenDocument(selectedDocument)}
@@ -3461,7 +3793,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </button>
-                
+
                 {/* Close Button */}
                 <button
                   onClick={() => setIsDocumentModalOpen(false)}
@@ -3473,7 +3805,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 </button>
               </div>
             </div>
-            
+
             {/* Document Content */}
             <div className="p-4 max-h-[calc(90vh-120px)] overflow-auto">
               {selectedDocument.attributes?.mime?.startsWith('image/') ? (
@@ -3534,9 +3866,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     onClick={() => handleDownloadDocument(selectedDocument)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                          </svg>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
                     Download File
                   </button>
                 </div>

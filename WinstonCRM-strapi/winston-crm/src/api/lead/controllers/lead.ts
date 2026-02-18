@@ -12,7 +12,7 @@ export default factories.createCoreController('api::lead.lead', ({ strapi }) => 
         ...ctx.query,
         populate: ['Documents'],
       });
-      
+
       return {
         data: leads,
         meta: {
@@ -33,15 +33,15 @@ export default factories.createCoreController('api::lead.lead', ({ strapi }) => 
   async findOne(ctx) {
     try {
       const { id } = ctx.params;
-      
+
       const lead = await strapi.entityService.findOne('api::lead.lead', id, {
         populate: ['Documents'],
       });
-      
+
       if (!lead) {
         return ctx.notFound('Lead not found');
       }
-      
+
       return {
         data: lead,
         meta: {}
@@ -58,12 +58,13 @@ export default factories.createCoreController('api::lead.lead', ({ strapi }) => 
         data: ctx.request.body.data || ctx.request.body,
         populate: ['Documents'],
       });
-      
+
       return {
         data: lead,
         meta: {}
       };
     } catch (error) {
+      console.error('Lead create error details:', error);
       ctx.throw(500, 'Error creating lead');
     }
   },
@@ -72,12 +73,12 @@ export default factories.createCoreController('api::lead.lead', ({ strapi }) => 
   async update(ctx) {
     try {
       const { id } = ctx.params;
-      
+
       const updatedLead = await strapi.entityService.update('api::lead.lead', id, {
         data: ctx.request.body.data || ctx.request.body,
         populate: ['Documents'],
       });
-      
+
       return {
         data: updatedLead,
         meta: {}
@@ -91,14 +92,14 @@ export default factories.createCoreController('api::lead.lead', ({ strapi }) => 
   async delete(ctx) {
     try {
       const { id } = ctx.params;
-      
+
       const lead = await strapi.entityService.findOne('api::lead.lead', id);
       if (!lead) {
         return ctx.notFound('Lead not found');
       }
-      
+
       const deletedLead = await strapi.entityService.delete('api::lead.lead', id);
-      
+
       return {
         data: deletedLead,
         meta: {}

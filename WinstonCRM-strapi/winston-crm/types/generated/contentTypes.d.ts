@@ -1153,9 +1153,10 @@ export interface ApiTimesheetTimesheet extends Struct.CollectionTypeSchema {
       'api::timesheet.timesheet'
     > &
       Schema.Attribute.Private;
-    location: Schema.Attribute.Enumeration<['Office', 'Remote']> &
+    location: Schema.Attribute.Enumeration<['Office', 'Work from Home']> &
       Schema.Attribute.DefaultTo<'Office'>;
-    notes: Schema.Attribute.Text & Schema.Attribute.Required;
+    notes: Schema.Attribute.Text;
+    noteToAdmin: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
     startTime: Schema.Attribute.Time & Schema.Attribute.Required;
     totalHours: Schema.Attribute.Decimal;
@@ -1623,6 +1624,8 @@ export interface PluginUsersPermissionsUser
   };
   attributes: {
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    canAccessAgencies: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     canAccessDashboard: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<true>;
     canAccessLeads: Schema.Attribute.Boolean &

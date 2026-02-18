@@ -1,0 +1,107 @@
+'use client';
+
+import React from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { Timesheet } from './TimesheetTable'; // Assuming Timesheet type is exported from TimesheetTable or a shared types file. 
+// If Timesheet type is not exported, I will define a local interface or import from types/timesheet if it exists. 
+// For now, I'll assume it needs to be imported or defined.
+// To be safe, I'll define a compatible interface here if I can't find the export source easily, 
+// but TimesheetTable.tsx definitely has it. I'll import it.
+
+interface TimesheetCalendarProps {
+    timesheets: Timesheet[];
+}
+
+export default function TimesheetCalendar({ timesheets }: TimesheetCalendarProps) {
+    // Map timesheets to FullCalendar events
+    const events = timesheets.map(t => {
+        // Combine date and time
+        let start, end;
+        if (t.date && t.startTime) {
+            start = `${t.date.split('T')[0]}T${t.startTime}`;
+        } else {
+            start = t.date; // Fallback to just date
+        }
+
+        if (t.date && t.endTime) {
+            end = `${t.date.split('T')[0]}T${t.endTime}`;
+        }
+
+        // Determine title
+        const title = t.employee
+            ? `${t.employee.firstName || t.employee.username} (${formatTotalHours(t.totalHours)})`
+            : t.totalHours ? `Hours: ${formatTotalHours(t.totalHours)}` : 'Logged';
+
+        // Color coding based on location (optional, matching Table logic)
+        const isWFH = t.location === 'Work from Home';
+        const backgroundColor = isWFH ? '#9333ea' : '#3b82f6'; // Purple for WFH, Blue for Office
+        const borderColor = isWFH ? '#7e22ce' : '#2563eb';
+
+        return {
+            id: t.id.toString(),
+            title: title,
+            start: start,
+            end: end,
+            allDay: !t.startTime,
+            backgroundColor,
+            borderColor,
+            extendedProps: {
+                notes: t.notes,
+                location: t.location
+            }
+        };
+    });
+
+    return (
+        <div className="p-4 bg-white dark:bg-gray-900 rounded-lg shadow">
+            {/* Custom CSS to handle dark mode override for FullCalendar if needed, 
+          but usually it inherits okay or needs specific vars. 
+          For now, standard rendering. */}
+            <style>{`
+        .fc {
+          --fc-border-color: #e5e7eb;
+          --fc-button-bg-color: #3b82f6;
+          --fc-button-border-color: #3b82f6;
+          --fc-button-hover-bg-color: #2563eb;
+          --fc-button-hover-border-color: #2563eb;
+          --fc-button-active-bg-color: #1d4ed8;
+          --fc-button-active-border-color: #1d4ed8;
+        }
+        .dark .fc {
+          --fc-page-bg-color: #111827;
+          --fc-neutral-bg-color: #1f2937;
+          --fc-list-event-hover-bg-color: #374151;
+          --fc-border-color: #374151;
+          --fc-theme-standard-border-color: #374151;
+        }
+        .dark .fc-col-header-cell-cushion,
+        .dark .fc-daygrid-day-number {
+          color: #e5e7eb;
+        }
+      `}</style>
+            <FullCalendar
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }}
+                events={events}
+                height="auto"
+                aspectRatio={1.35}
+            />
+        </div>
+    );
+}
+
+// Helper to format hours
+function formatTotalHours(decimalHours: number | null | undefined): string {
+    if (decimalHours === null || decimalHours === undefined) return '0h 0m';
+    const hours = Math.floor(decimalHours);
+    const minutes = Math.round((decimalHours - hours) * 60);
+    return `${hours}h ${minutes}m`;
+}

@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   title: 'Winston Academy CRM',
   description: 'Customer Relationship Management System for Winston Academy',
   icons: {
-    icon: '/images/favicon.ico',
-    shortcut: '/images/favicon.ico',
-    apple: '/images/logo/logo-icon.svg',
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
 };
 
