@@ -27,6 +27,7 @@ export interface RealBackendUser {
   canAccessUsers?: boolean;
   canAccessDashboard?: boolean;
   canAccessTimesheets?: boolean;
+  canAccessAgencies?: boolean;
   isActive?: boolean;
 }
 
@@ -52,13 +53,14 @@ export interface RegisterData {
   canAccessUsers?: boolean;
   canAccessDashboard?: boolean;
   canAccessTimesheets?: boolean;
+  canAccessAgencies?: boolean;
   isActive?: boolean;
 }
 
 class RealBackendAuthService {
   private currentUser: RealBackendUser | null = null;
   private currentToken: string | null = null;
-  private readonly BASE_URL = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+  private readonly BASE_URL = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || (typeof window !== 'undefined' ? '' : 'http://localhost:1337');
   private readonly USE_PROXY = typeof window !== 'undefined'; // Use proxy in browser
   private tokenRefreshInterval: NodeJS.Timeout | null = null;
   private readonly TOKEN_REFRESH_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
@@ -67,7 +69,7 @@ class RealBackendAuthService {
   constructor() {
     // Load stored user and token on initialization
     this.loadStoredAuth();
-    
+
     // Start token refresh monitoring if in browser
     if (typeof window !== 'undefined') {
       this.startTokenRefreshMonitoring();
@@ -81,11 +83,11 @@ class RealBackendAuthService {
     try {
       console.log('🔐 RealBackendAuth: Attempting login with backend authentication...');
       console.log('🔐 RealBackendAuth: Credentials:', { identifier: credentials.identifier });
-      
+
       // Use Next.js API proxy in browser to avoid CORS issues
-      const url = this.USE_PROXY ? '/api/auth/login' : `${this.BASE_URL}/api/auth/local`;
+      const url = this.USE_PROXY ? '/api/auth/login' : `${this.BASE_URL || 'http://localhost:1337'}/api/auth/local`;
       console.log('🔐 RealBackendAuth: Using URL:', url);
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -100,11 +102,11 @@ class RealBackendAuthService {
       if (!response.ok) {
         let errorData: any = {};
         let errorMessage = 'Login failed';
-        
+
         try {
           const responseText = await response.text();
           console.log('🔐 RealBackendAuth: Error response text:', responseText);
-          
+
           if (responseText) {
             try {
               errorData = JSON.parse(responseText);
@@ -113,7 +115,7 @@ class RealBackendAuthService {
               errorMessage = responseText || 'Login failed';
             }
           }
-          
+
           // Extract error message from various possible structures
           if (errorData.error?.message) {
             errorMessage = errorData.error.message;
@@ -122,10 +124,10 @@ class RealBackendAuthService {
           } else if (typeof errorData === 'string') {
             errorMessage = errorData;
           }
-          
+
           console.error('❌ RealBackendAuth: Login failed:', errorData);
           console.error('❌ RealBackendAuth: Error message:', errorMessage);
-          
+
           // Provide user-friendly error messages
           if (errorMessage.includes('blocked') || errorMessage.includes('deactivated')) {
             throw new Error('Your account has been deactivated. Please contact support.');
@@ -146,14 +148,14 @@ class RealBackendAuthService {
       }
 
       const authData: AuthResponse = await response.json();
-      
+
       console.log('✅ RealBackendAuth: Login successful with backend authentication');
       console.log('🔑 JWT Token:', authData.jwt.substring(0, 50) + '...');
       console.log('👤 User:', authData.user.email);
 
       // Fetch complete user data directly from users table (Strapi 5 workaround)
       console.log('🔄 RealBackendAuth: Fetching complete user data from database...');
-      
+
       // The auth response contains the user ID, use it to fetch full details
       try {
         const userResponse = await fetch(`${this.BASE_URL}/api/users/${authData.user.id}?populate=*`, {
@@ -167,7 +169,7 @@ class RealBackendAuthService {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           console.log('✅ RealBackendAuth: Complete user data fetched');
-          
+
           // Merge the complete user data
           authData.user = {
             ...authData.user,
@@ -180,7 +182,8 @@ class RealBackendAuthService {
             canAccessUsers: userData.canAccessUsers === true || userData.can_access_users === true,
             canAccessDashboard: userData.canAccessDashboard !== false && userData.can_access_dashboard !== false,
             canAccessTimesheets: userData.canAccessTimesheets !== false && userData.can_access_timesheets !== false,
-            isActive: userData.isActive !== false && userData.is_active !== false,
+            canAccessAgencies: userData.canAccessAgencies === true || userData.can_access_agencies === true,
+            isActive: !(userData.blocked ?? false),
             firstName: userData.firstName || userData.first_name || '',
             lastName: userData.lastName || userData.last_name || '',
             phone: userData.phone || userData.data?.phone || '',
@@ -194,6 +197,7 @@ class RealBackendAuthService {
             authData.user.canAccessUsers = true;
             authData.user.canAccessDashboard = true;
             authData.user.canAccessTimesheets = true;
+            authData.user.canAccessAgencies = true;
             authData.user.role = 'admin';
             authData.user.userRole = 'admin';
             authData.user.isActive = true;
@@ -204,6 +208,7 @@ class RealBackendAuthService {
             authData.user.canAccessUsers = false;
             authData.user.canAccessDashboard = true;
             authData.user.canAccessTimesheets = true;
+            authData.user.canAccessAgencies = false;
             authData.user.role = 'team_member';
             authData.user.isActive = true;
           }
@@ -216,6 +221,7 @@ class RealBackendAuthService {
           authData.user.canAccessStudents = true;
           authData.user.canAccessUsers = true;
           authData.user.canAccessDashboard = true;
+          authData.user.canAccessAgencies = true;
           authData.user.role = 'admin';
           authData.user.userRole = 'admin';
           authData.user.isActive = true;
@@ -239,19 +245,19 @@ class RealBackendAuthService {
       this.currentUser = authData.user;
       this.currentToken = authData.jwt;
       this.storeAuth();
-      
+
       // Restart token refresh monitoring with new token
       this.startTokenRefreshMonitoring();
 
       return authData;
     } catch (error) {
       console.error('❌ RealBackendAuth: Login failed:', error);
-      
+
       // Check if it's a network error
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         throw new Error('Unable to connect to backend server. Please make sure Strapi is running on http://localhost:1337');
       }
-      
+
       throw error;
     }
   }
@@ -262,7 +268,7 @@ class RealBackendAuthService {
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
       console.log('📝 RealBackendAuth: Registering new user with backend authentication...');
-      
+
       const response = await fetch(`${this.BASE_URL}/api/auth/local/register`, {
         method: 'POST',
         headers: {
@@ -277,7 +283,7 @@ class RealBackendAuthService {
       }
 
       const authData: AuthResponse = await response.json();
-      
+
       console.log('✅ RealBackendAuth: Registration successful with backend authentication');
       console.log('🔑 JWT Token:', authData.jwt.substring(0, 50) + '...');
       console.log('👤 User:', authData.user.email);
@@ -286,7 +292,7 @@ class RealBackendAuthService {
       this.currentUser = authData.user;
       this.currentToken = authData.jwt;
       this.storeAuth();
-      
+
       // Restart token refresh monitoring with new token
       this.startTokenRefreshMonitoring();
 
@@ -325,7 +331,7 @@ class RealBackendAuthService {
       this.logout();
       return null;
     }
-    
+
     return this.currentToken;
   }
 
@@ -347,13 +353,13 @@ class RealBackendAuthService {
     if (!this.currentUser || !this.currentToken) {
       return false;
     }
-    
+
     // Check if token is expired
     if (this.isTokenExpired(this.currentToken)) {
       console.warn('⚠️ RealBackendAuth: Token is expired');
       return false;
     }
-    
+
     return true;
   }
 
@@ -386,10 +392,10 @@ class RealBackendAuthService {
       if (!decoded || !decoded.exp) {
         return true; // If we can't decode, assume expired
       }
-      
+
       const expirationTime = decoded.exp * 1000; // Convert to milliseconds
       const currentTime = Date.now();
-      
+
       return currentTime >= expirationTime;
     } catch (error) {
       console.error('Error checking token expiration:', error);
@@ -420,10 +426,10 @@ class RealBackendAuthService {
     if (!expirationTime) {
       return true; // Can't determine, try to refresh
     }
-    
+
     const currentTime = Date.now();
     const timeUntilExpiration = expirationTime - currentTime;
-    
+
     // Refresh if token expires within the threshold
     return timeUntilExpiration < this.TOKEN_REFRESH_THRESHOLD;
   }
@@ -448,10 +454,10 @@ class RealBackendAuthService {
     // The token will remain valid until it expires
     // In a production system, you'd want to implement a refresh token mechanism
     console.log('🔄 RealBackendAuth: Token refresh check - token still valid');
-    
+
     // Refresh user data to ensure we have latest permissions
     await this.refreshUser();
-    
+
     return true;
   }
 
@@ -461,27 +467,27 @@ class RealBackendAuthService {
   private startTokenRefreshMonitoring(): void {
     // Clear any existing interval
     this.stopTokenRefreshMonitoring();
-    
+
     // Check token expiration periodically
     this.tokenRefreshInterval = setInterval(async () => {
       if (!this.currentToken) {
         return;
       }
-      
+
       // Check if token is expired
       if (this.isTokenExpired(this.currentToken)) {
         console.log('⚠️ RealBackendAuth: Token expired, logging out');
         this.logout();
         return;
       }
-      
+
       // Check if token needs refresh
       if (this.shouldRefreshToken(this.currentToken)) {
         console.log('🔄 RealBackendAuth: Token expires soon, attempting refresh...');
         await this.refreshToken();
       }
     }, this.TOKEN_REFRESH_CHECK_INTERVAL);
-    
+
     console.log('✅ RealBackendAuth: Token refresh monitoring started');
   }
 
@@ -512,10 +518,10 @@ class RealBackendAuthService {
 
     try {
       console.log('🔄 RealBackendAuth: Refreshing user data from backend...');
-      
+
       // Check token before making request
       const token = this.getValidToken();
-      
+
       // Use the user ID to fetch updated user data (since /api/users/me doesn't exist in Strapi)
       const response = await fetch(`${this.BASE_URL}/api/users/${this.currentUser.id}?populate=*`, {
         headers: {
@@ -534,12 +540,12 @@ class RealBackendAuthService {
 
       const responseData = await response.json();
       const userData: RealBackendUser = responseData.data || responseData;
-      
+
       // Map userRole to role for compatibility
       if (userData.userRole && !userData.role) {
         userData.role = userData.userRole;
       }
-      
+
       console.log('✅ RealBackendAuth: User data refreshed from backend');
       this.currentUser = userData;
       this.storeAuth();
@@ -547,14 +553,14 @@ class RealBackendAuthService {
       return userData;
     } catch (error) {
       console.error('❌ RealBackendAuth: Error refreshing user data:', error);
-      
+
       // Handle network errors gracefully - don't throw, just return null
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         console.warn('⚠️ RealBackendAuth: Backend server may be unavailable. Skipping refresh.');
         // Return current user if available, otherwise null
         return this.currentUser;
       }
-      
+
       return null;
     }
   }
@@ -567,7 +573,7 @@ class RealBackendAuthService {
 
     try {
       console.log('📋 RealBackendAuth: Fetching all users from backend...');
-      
+
       const response = await fetch(`${this.BASE_URL}/api/users-permissions/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -595,7 +601,7 @@ class RealBackendAuthService {
 
     try {
       console.log('✏️ RealBackendAuth: Updating user profile in backend...');
-      
+
       const response = await fetch(`${this.BASE_URL}/api/users-permissions/users/${userId}`, {
         method: 'PUT',
         headers: {
@@ -637,7 +643,7 @@ class RealBackendAuthService {
           if (this.currentUser.userRole && !this.currentUser.role) {
             this.currentUser.role = this.currentUser.userRole;
           }
-          
+
           localStorage.setItem('real_backend_user', JSON.stringify(this.currentUser));
           localStorage.setItem('real_backend_token', this.currentToken);
           console.log('💾 RealBackendAuth: Stored user with role:', this.currentUser.role);
@@ -656,7 +662,7 @@ class RealBackendAuthService {
       try {
         const storedUser = localStorage.getItem('real_backend_user');
         const storedToken = localStorage.getItem('real_backend_token');
-        
+
         if (storedUser && storedToken) {
           // Check if token is expired before loading
           if (this.isTokenExpired(storedToken)) {
@@ -664,15 +670,15 @@ class RealBackendAuthService {
             this.clearStoredAuth();
             return;
           }
-          
+
           this.currentUser = JSON.parse(storedUser);
           this.currentToken = storedToken;
-          
+
           // Map userRole to role for compatibility
           if (this.currentUser && this.currentUser.userRole && !this.currentUser.role) {
             this.currentUser.role = this.currentUser.userRole;
           }
-          
+
           console.log('✅ RealBackendAuth: Loaded stored authentication data');
         }
       } catch (error) {
