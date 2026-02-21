@@ -10,6 +10,17 @@ const defaultRouter = createCoreRouter('plugin::users-permissions.user');
 
 const customRoutes = {
   routes: [
+    // Change password route for authenticated user
+    {
+      method: 'POST',
+      path: '/users/change-password',
+      handler: 'user.changePassword',
+      config: {
+        auth: {
+          scope: ['authenticated']
+        }
+      }
+    },
     // IMPORTANT: Current user endpoint
     {
       method: 'GET',
@@ -36,17 +47,6 @@ const customRoutes = {
       method: 'PUT',
       path: '/users/:id/toggle-status',
       handler: 'user.toggleStatus',
-      config: {
-        auth: {
-          scope: ['authenticated']
-        }
-      }
-    },
-    // Change password route for authenticated user
-    {
-      method: 'POST',
-      path: '/users/change-password',
-      handler: 'user.changePassword',
       config: {
         auth: {
           scope: ['authenticated']

@@ -10,13 +10,15 @@ export default [
       origin: [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'https://crm.winstonacademy.co.uk'
+        'https://crm.winstonacademy.co.uk',
+        'https://api.crm.winstonacademy.co.uk',
       ]
     }
   },
   'strapi::poweredBy',
   'strapi::query',
   'strapi::body',
+  'global::change-password',
   'strapi::session',
   'strapi::favicon',
   'strapi::public'

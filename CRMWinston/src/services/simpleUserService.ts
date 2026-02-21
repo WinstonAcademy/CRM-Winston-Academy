@@ -7,7 +7,7 @@ export type User = RealBackendUser & {
 };
 
 class SimpleUserService {
-  private readonly BASE_URL = 'http://localhost:1337';
+  private readonly BASE_URL = '';
 
   // Get all users from backend (users-permissions authentication users)
   async getUsers(): Promise<User[]> {

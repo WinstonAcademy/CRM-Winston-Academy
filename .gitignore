@@ -36,9 +36,14 @@ yarn-error.log*
 tmp/
 temp/
 
-# Deployment scripts (optional - uncomment if you don't want to commit these)
-# cleanup-vps.sh
-# setup-vps-git.sh
+# Deployment scripts
+deploy_*.sh
+fix_*.sh
+correct_*.js
+fix_*.js
+
+# Build artifacts
+*.zip
 
 
 

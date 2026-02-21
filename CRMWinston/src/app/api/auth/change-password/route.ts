@@ -13,10 +13,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get Strapi URL from environment variable
-    const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+    const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk';
     
-    // Forward the request to Strapi
-    const response = await fetch(`${strapiUrl}/api/users/change-password`, {
+    // Forward the request to Strapi custom change-password endpoint
+    const response = await fetch(`${strapiUrl}/api/custom-auth/change-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

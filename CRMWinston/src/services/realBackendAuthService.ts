@@ -60,7 +60,7 @@ export interface RegisterData {
 class RealBackendAuthService {
   private currentUser: RealBackendUser | null = null;
   private currentToken: string | null = null;
-  private readonly BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://127.0.0.1:1337');
+  private readonly BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
   private readonly USE_PROXY = typeof window !== 'undefined'; // Use proxy in browser
   private tokenRefreshInterval: NodeJS.Timeout | null = null;
   private readonly TOKEN_REFRESH_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
@@ -85,7 +85,7 @@ class RealBackendAuthService {
       console.log('🔐 RealBackendAuth: Credentials:', { identifier: credentials.identifier });
 
       // Use Next.js API proxy in browser to avoid CORS issues
-      const url = this.USE_PROXY ? '/api/auth/login' : `${this.BASE_URL || 'http://localhost:1337'}/api/auth/local`;
+      const url = this.USE_PROXY ? '/api/auth/login' : `${this.BASE_URL || 'https://api.crm.winstonacademy.co.uk'}/api/auth/local`;
       console.log('🔐 RealBackendAuth: Using URL:', url);
 
       const response = await fetch(url, {
@@ -255,7 +255,7 @@ class RealBackendAuthService {
 
       // Check if it's a network error
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Unable to connect to backend server. Please make sure Strapi is running on http://localhost:1337');
+        throw new Error('Unable to connect to backend server. Please check your connection.');
       }
 
       throw error;

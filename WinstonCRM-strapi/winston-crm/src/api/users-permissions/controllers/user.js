@@ -5,6 +5,7 @@
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const bcrypt = require('bcryptjs');
 
 module.exports = createCoreController('plugin::users-permissions.user', ({ strapi }) => ({
   // IMPORTANT: Get current authenticated user (required for /api/users/me)
@@ -199,32 +200,24 @@ module.exports = createCoreController('plugin::users-permissions.user', ({ strap
     }
   },
 
-  // Custom method to change password for authenticated user
+  // Custom method to change password for authenticated user (FIXED)
   async changePassword(ctx) {
     try {
       const user = ctx.state.user;
-
-      if (!user) {
-        return ctx.unauthorized('You must be authenticated to change your password');
-      }
+      if (!user) return ctx.unauthorized('You must be authenticated to change your password');
 
       const { password, passwordConfirmation } = ctx.request.body;
 
-      if (!password || !passwordConfirmation) {
-        return ctx.badRequest('Password and password confirmation are required');
-      }
+      if (!password || !passwordConfirmation) return ctx.badRequest('Password and password confirmation are required');
+      if (password !== passwordConfirmation) return ctx.badRequest('Passwords do not match');
+      if (password.length < 6) return ctx.badRequest('Password must be at least 6 characters long');
 
-      if (password !== passwordConfirmation) {
-        return ctx.badRequest('Passwords do not match');
-      }
+      // Hash the new password manually to avoid plugin logic issues
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-      if (password.length < 6) {
-        return ctx.badRequest('Password must be at least 6 characters long');
-      }
-
-      // Update password using Strapi's user service
-      await strapi.plugin('users-permissions').service('user').edit(user.id, {
-        password,
+      // Update directly via Entity Service
+      await strapi.entityService.update('plugin::users-permissions.user', user.id, {
+        data: { password: hashedPassword }
       });
 
       return ctx.send({ message: 'Password changed successfully' });

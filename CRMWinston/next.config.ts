@@ -1,13 +1,12 @@
 import type { NextConfig } from "next";
 
+const strapiBaseUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk';
+
 const nextConfig: NextConfig = {
-  /* config options here */
   eslint: {
-    // Disable ESLint during builds for production deployment
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Allow build to continue even with TypeScript errors (for now)
     ignoreBuildErrors: true,
   },
   webpack(config) {
@@ -16,6 +15,14 @@ const nextConfig: NextConfig = {
       use: ["@svgr/webpack"],
     });
     return config;
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${strapiBaseUrl}/api/:path*`,
+      },
+    ];
   },
 };
 

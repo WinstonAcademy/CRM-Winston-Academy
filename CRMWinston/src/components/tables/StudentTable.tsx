@@ -3703,10 +3703,10 @@ export default function StudentTable() {
                         } else if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
                           pdfUrl = fileUrl;
                         } else if (fileUrl.startsWith('/')) {
-                          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+                          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
                           pdfUrl = `${strapiUrl}${fileUrl}`;
                         } else {
-                          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+                          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
                           pdfUrl = `${strapiUrl}/${fileUrl}`;
                         }
                       }

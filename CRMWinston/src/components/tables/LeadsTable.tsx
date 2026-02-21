@@ -253,7 +253,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       }
 
       // Use direct fetch with JWT token
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       const response = await fetch(`${strapiUrl}/api/leads?populate=*`, {
         method: 'GET',
         headers: {
@@ -557,7 +557,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         return;
       }
 
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       const response = await fetch(`${strapiUrl}/api/leads/${editLead.id}`, {
         method: 'PUT',
         headers: {
@@ -604,7 +604,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           return;
         }
 
-        const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+        const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
         const response = await fetch(`${strapiUrl}/api/leads/${lead.id}`, {
           method: 'DELETE',
           headers: {
@@ -718,7 +718,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         return;
       }
 
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       let removedCount = 0;
       let failedCount = 0;
 
@@ -785,7 +785,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
     try {
       if (doc.attributes?.url) {
         const token = realBackendAuthService.getCurrentToken();
-        const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+        const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
         const fullUrl = `${strapiUrl}${doc.attributes.url}`;
         const response = await fetch(fullUrl, {
           headers: token ? {
@@ -816,7 +816,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
   // Handle open document in new tab
   const handleOpenDocument = (doc: any) => {
     if (doc.attributes?.url) {
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       const fullUrl = `${strapiUrl}${doc.attributes.url}`;
       window.open(fullUrl, '_blank');
     } else {
@@ -849,7 +849,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
       }
 
       // Upload files to Strapi
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       const response = await fetch(`${strapiUrl}/api/upload`, {
         method: 'POST',
         headers: {
@@ -871,7 +871,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         // Test: Fetch the current lead from the backend to see its structure
         console.log('🔍 Fetching current lead from backend to check structure...');
         try {
-          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
           const leadResponse = await fetch(`${strapiUrl}/api/leads/${leadId}?populate=*`, {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -920,7 +920,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
         console.log('📤 Sending update payload:', updatePayload);
 
-        const updateResponse = await fetch(`http://localhost:1337/api/leads/${leadId}`, {
+        const updateResponse = await fetch(`/api/leads/${leadId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -983,7 +983,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         }
 
         // First, delete the file from Strapi
-        const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+        const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
         const response = await fetch(`${strapiUrl}/api/upload/files/${documentId}`, {
           method: 'DELETE',
           headers: {
@@ -1007,7 +1007,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           // Update the lead in the backend to remove the document association
           console.log('🔗 Removing document association from lead:', { leadId, updatedDocIds });
 
-          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
           const updateResponse = await fetch(`${strapiUrl}/api/leads/${leadId}`, {
             method: 'PUT',
             headers: {
@@ -1382,7 +1382,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         return;
       }
 
-      const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+      const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
       const response = await fetch(`${strapiUrl}/api/leads`, {
         method: 'POST',
         headers: {
@@ -1429,7 +1429,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               formDataFiles.append('files', file);
             });
 
-            const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+            const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
             const uploadResponse = await fetch(`${strapiUrl}/api/upload`, {
               method: 'POST',
               headers: {
@@ -1451,7 +1451,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
               // Wait a bit for the lead to be fully persisted
               await new Promise(resolve => setTimeout(resolve, 500));
 
-              const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+              const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
               const updateLeadResponse = await fetch(`${strapiUrl}/api/leads/${leadId}`, {
                 method: 'PUT',
                 headers: {
@@ -1506,7 +1506,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 try {
                   await new Promise(resolve => setTimeout(resolve, 500));
 
-                  const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+                  const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
                   const fetchUpdatedLeadResponse = await fetch(`${strapiUrl}/api/leads/${leadId}?populate=Documents`, {
                     method: 'GET',
                     headers: {
@@ -1848,7 +1848,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           console.log('📤 Sending lead data:', leadData);
 
           // Create lead in Strapi
-          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
           const response = await fetch(`${strapiUrl}/api/leads`, {
             method: 'POST',
             headers: {
@@ -1921,7 +1921,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           }
 
           // Delete all selected leads
-          const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+          const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
           const deletePromises = selectedLeadIds.map(id =>
             fetch(`${strapiUrl}/api/leads/${id}`, {
               method: 'DELETE',
@@ -2034,7 +2034,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         }
 
         // Update the lead in the backend
-        const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+        const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
         const response = await fetch(`${strapiUrl}/api/leads/${lead.id}`, {
           method: 'PUT',
           headers: {
@@ -3810,14 +3810,14 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             <div className="p-4 max-h-[calc(90vh-120px)] overflow-auto">
               {selectedDocument.attributes?.mime?.startsWith('image/') ? (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337'}${selectedDocument.attributes.url}`}
+                  src={`${typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk')}${selectedDocument.attributes.url}`}
                   alt={selectedDocument.attributes.Name}
                   className="max-w-full h-auto rounded-lg shadow-lg"
                 />
               ) : selectedDocument.attributes?.mime?.includes('pdf') ? (
                 (() => {
                   const url = selectedDocument.attributes.url;
-                  const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337';
+                  const strapiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk');
                   const pdfUrl = url.startsWith('http') ? url : `${strapiUrl}${url}`;
                   console.log('📕 Loading PDF from URL:', pdfUrl);
                   console.log('📕 Original URL:', url);
@@ -3842,7 +3842,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   controls
                   className="w-full h-auto rounded-lg shadow-lg"
                 >
-                  <source src={`${process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337'}${selectedDocument.attributes.url}`} type={selectedDocument.attributes.mime} />
+                  <source src={`${typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk')}${selectedDocument.attributes.url}`} type={selectedDocument.attributes.mime} />
                   Your browser does not support the video tag.
                 </video>
               ) : selectedDocument.attributes?.mime?.startsWith('audio/') ? (
@@ -3850,7 +3850,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                   controls
                   className="w-full"
                 >
-                  <source src={`${process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'http://localhost:1337'}${selectedDocument.attributes.url}`} type={selectedDocument.attributes.mime} />
+                  <source src={`${typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk')}${selectedDocument.attributes.url}`} type={selectedDocument.attributes.mime} />
                   Your browser does not support the audio tag.
                 </audio>
               ) : (

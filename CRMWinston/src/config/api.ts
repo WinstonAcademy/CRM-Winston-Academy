@@ -1,15 +1,16 @@
 // API Configuration for Winston Academy CRM
 export const API_CONFIG = {
-  // Strapi Backend URL - Hardcoded for now to fix connection issue
-  STRAPI_URL: 'http://localhost:1337',
-  
+  STRAPI_URL: typeof window !== 'undefined'
+    ? ''
+    : (process.env.NEXT_PUBLIC_STRAPI_URL?.replace('/api', '') || 'https://api.crm.winstonacademy.co.uk'),
+
   // API Endpoints
   ENDPOINTS: {
     LEADS: '/api/leads',
     USERS: '/api/users',
     COURSES: '/api/courses',
   },
-  
+
   // API Headers
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
@@ -18,13 +19,17 @@ export const API_CONFIG = {
 
 // Helper function to build API URLs
 export const buildApiUrl = (endpoint: string, params?: Record<string, string>) => {
-  const url = new URL(`${API_CONFIG.STRAPI_URL}${endpoint}`);
-  
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
-    });
+  const base = API_CONFIG.STRAPI_URL;
+  const fullPath = `${base}${endpoint}`;
+
+  if (!params || Object.keys(params).length === 0) {
+    return fullPath;
   }
-  
-  return url.toString();
+
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    searchParams.append(key, value);
+  });
+
+  return `${fullPath}?${searchParams.toString()}`;
 };

@@ -15,7 +15,7 @@ export const usePermissionRefresh = () => {
 
   useEffect(() => {
     // List of routes that require permission checks
-    const protectedRoutes = ['/leads', '/students', '/users', '/leads-dashboard'];
+    const protectedRoutes = ['/leads', '/students', '/users', '/leads-dashboard', '/agencies', '/agencies-dashboard'];
     
     // Check if current route is a protected route
     const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));

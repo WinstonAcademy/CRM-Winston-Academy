@@ -94,18 +94,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
+    if (!realBackendAuthService.isAuthenticated()) {
+      return;
+    }
     try {
       const updatedUser = await realBackendAuthService.refreshUser();
       if (updatedUser) {
         setUser(updatedUser);
-        console.log('AuthContext: User refreshed with latest data from real backend');
-      } else {
-        console.warn('AuthContext: Failed to refresh user data, keeping current user');
-        // Don't clear user on refresh failure - keep current user data
       }
     } catch (error) {
-      console.error('Error refreshing user:', error);
-      // Don't logout on network errors - just log and continue with current user
       if (error instanceof Error && error.message.includes('Authentication') && !error.message.includes('Failed to fetch')) {
         logout();
       }
