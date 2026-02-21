@@ -7,6 +7,7 @@ import Label from '../form/Label';
 
 const ChangePassword: React.FC = () => {
   const [formData, setFormData] = useState({
+    currentPassword: '',
     password: '',
     confirmPassword: '',
   });
@@ -51,8 +52,8 @@ const ChangePassword: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.password.trim() || !formData.confirmPassword.trim()) {
-      setError('Please fill in all fields');
+    if (!formData.currentPassword.trim() || !formData.password.trim() || !formData.confirmPassword.trim()) {
+      setError('Current password and new password are required');
       return;
     }
 
@@ -85,8 +86,8 @@ const ChangePassword: React.FC = () => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          password: formData.password,
-          passwordConfirmation: formData.confirmPassword,
+          currentPassword: formData.currentPassword,
+          newPassword: formData.password,
         }),
       });
 
@@ -146,6 +147,22 @@ const ChangePassword: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Current Password Field */}
+            <div>
+              <Label htmlFor="currentPassword" className="text-gray-700 dark:text-gray-300 font-medium">
+                Current Password
+              </Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={formData.currentPassword}
+                onChange={(e) => handleChange('currentPassword', e.target.value)}
+                placeholder="Enter current password"
+                className="mt-1 block w-full border-gray-300 dark:border-gray-600 focus:border-orange-500 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                disabled={isLoading}
+              />
+            </div>
 
             {/* New Password Field */}
             <div>
