@@ -2137,7 +2137,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         <div className="grid grid-cols-3 gap-2">
           {/* First Column - Personal Info */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2156,7 +2156,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Name}
                     onChange={(e) => handleChange('Name', e.target.value)}
                     placeholder="Enter full name"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -2168,7 +2168,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Email}
                     onChange={(e) => handleChange('Email', e.target.value)}
                     placeholder="Enter email address"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -2180,7 +2180,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Phone}
                     onChange={(e) => handleChange('Phone', e.target.value)}
                     placeholder="Enter phone number"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -2199,7 +2199,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
           {/* Second Column - Lead Details + Course */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2251,7 +2251,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             </div>
 
             {/* Course Box Below Lead Details */}
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2272,7 +2272,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
           {/* Third Column - Notes */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-white/[0.03] p-3 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2287,7 +2287,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 value={formData.Notes}
                 onChange={(e) => handleChange('Notes', e.target.value)}
                 placeholder="Enter additional notes about this lead..."
-                className="h-64 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                className="h-64 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
               />
             </div>
           </div>
@@ -2296,7 +2296,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
 
         {/* Document Management Section - Horizontal Layout */}
-        <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-slate-500 rounded-lg flex items-center justify-center">
@@ -2404,7 +2404,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           <button
             type="button"
             onClick={onCancel}
-            className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+            className="bg-white dark:bg-white/[0.05] text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-xl hover:bg-gray-50 dark:hover:bg-white/[0.08] transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-gray-300 dark:border-white/[0.1] hover:border-gray-400 dark:hover:border-white/[0.15]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2506,7 +2506,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         <div className="grid grid-cols-3 gap-3">
           {/* First Column - Personal Info */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2525,7 +2525,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Name}
                     onChange={(e) => handleChange('Name', e.target.value)}
                     placeholder="Enter full name"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
                 <div>
@@ -2536,7 +2536,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Email}
                     onChange={(e) => handleChange('Email', e.target.value)}
                     placeholder="Enter email address"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
                 <div>
@@ -2547,7 +2547,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                     value={formData.Phone}
                     onChange={(e) => handleChange('Phone', e.target.value)}
                     placeholder="Enter phone number"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
                 <div>
@@ -2565,7 +2565,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
           {/* Second Column - Lead Details + Course */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2615,7 +2615,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
             </div>
 
             {/* Course Box */}
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2636,7 +2636,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
           {/* Third Column - Notes */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-white/[0.03] p-3 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2650,7 +2650,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
                 value={formData.Notes}
                 onChange={(e) => handleChange('Notes', e.target.value)}
                 placeholder="Enter additional notes about this lead..."
-                className="h-52 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                className="h-52 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
               />
             </div>
           </div>
@@ -2734,7 +2734,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           <button
             type="button"
             onClick={onCancel}
-            className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+            className="bg-white dark:bg-white/[0.05] text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-xl hover:bg-gray-50 dark:hover:bg-white/[0.08] transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-gray-300 dark:border-white/[0.1] hover:border-gray-400 dark:hover:border-white/[0.15]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3723,14 +3723,14 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
       {/* Add Lead Form Modal */}
       {isAddLeadFormOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden border border-gray-200 dark:border-white/[0.08]">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Add New Lead</h3>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-white/[0.06]">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Add New Lead</h3>
               <button
                 onClick={() => setIsAddLeadFormOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-2 hover:bg-gray-100 rounded-full hover:scale-110"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200 p-2 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-full hover:scale-110"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -1108,7 +1108,7 @@ export default function AgenciesTable() {
         <div className="grid grid-cols-3 gap-3">
           {/* Column 1 - Agency Info */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -1118,19 +1118,19 @@ export default function AgenciesTable() {
               <div className="space-y-1">
                 <div>
                   <Label htmlFor="add-agencyName" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Agency Name *</Label>
-                  <Input id="add-agencyName" value={formData.agencyName} onChange={(e) => setFormData({ ...formData, agencyName: e.target.value })} placeholder="Enter agency name" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" required />
+                  <Input id="add-agencyName" value={formData.agencyName} onChange={(e) => setFormData({ ...formData, agencyName: e.target.value })} placeholder="Enter agency name" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" required />
                 </div>
                 <div>
                   <Label htmlFor="add-registrationNumber" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Registration Number</Label>
-                  <Input id="add-registrationNumber" value={formData.registrationNumber || ''} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="Enter registration number" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input id="add-registrationNumber" value={formData.registrationNumber || ''} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="Enter registration number" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
                 <div>
                   <Label htmlFor="add-agencyEmail" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Agency Email *</Label>
-                  <Input id="add-agencyEmail" type="email" value={formData.agencyEmail || ''} onChange={(e) => setFormData({ ...formData, agencyEmail: e.target.value })} placeholder="Enter email" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" required />
+                  <Input id="add-agencyEmail" type="email" value={formData.agencyEmail || ''} onChange={(e) => setFormData({ ...formData, agencyEmail: e.target.value })} placeholder="Enter email" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" required />
                 </div>
                 <div>
                   <Label htmlFor="add-website" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Website</Label>
-                  <Input id="add-website" type="url" value={formData.website || ''} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input id="add-website" type="url" value={formData.website || ''} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
                 <div>
                   <Label htmlFor="add-country" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Country *</Label>
@@ -1146,7 +1146,7 @@ export default function AgenciesTable() {
 
           {/* Column 2 - Contact & Contract */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -1156,19 +1156,19 @@ export default function AgenciesTable() {
               <div className="space-y-1">
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Name</Label>
-                  <Input value={formData.primaryContactName || ''} onChange={(e) => setFormData({ ...formData, primaryContactName: e.target.value })} placeholder="Contact name" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input value={formData.primaryContactName || ''} onChange={(e) => setFormData({ ...formData, primaryContactName: e.target.value })} placeholder="Contact name" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Email</Label>
-                  <Input type="email" value={formData.primaryContactEmail || ''} onChange={(e) => setFormData({ ...formData, primaryContactEmail: e.target.value })} placeholder="Contact email" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input type="email" value={formData.primaryContactEmail || ''} onChange={(e) => setFormData({ ...formData, primaryContactEmail: e.target.value })} placeholder="Contact email" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Phone</Label>
-                  <Input value={formData.primaryContactPhone || ''} onChange={(e) => setFormData({ ...formData, primaryContactPhone: e.target.value })} placeholder="Contact phone" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input value={formData.primaryContactPhone || ''} onChange={(e) => setFormData({ ...formData, primaryContactPhone: e.target.value })} placeholder="Contact phone" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1178,7 +1178,7 @@ export default function AgenciesTable() {
               <div className="space-y-1">
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Commission Rate (%)</Label>
-                  <Input type="number" step={0.01} value={formData.commissionRate || ''} onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) || undefined })} placeholder="e.g. 10" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                  <Input type="number" step={0.01} value={formData.commissionRate || ''} onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) || undefined })} placeholder="e.g. 10" className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white text-sm py-1.5 w-full" />
                 </div>
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Commission Type</Label>
@@ -1190,7 +1190,7 @@ export default function AgenciesTable() {
 
           {/* Column 3 - Dates, Notes, Documents */}
           <div className="space-y-2">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-purple-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -1202,7 +1202,7 @@ export default function AgenciesTable() {
                 <DatePicker id="add-contractEndDate" label="End Date" defaultDate={formData.contractEndDate} onChange={(dates, dateStr) => setFormData({ ...formData, contractEndDate: dateStr })} placeholder="Select Date" />
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-slate-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -1212,19 +1212,19 @@ export default function AgenciesTable() {
               <div className="space-y-1">
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Address</Label>
-                  <textarea value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter address" />
+                  <textarea value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-white/[0.04] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter address" />
                 </div>
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Payment Terms</Label>
-                  <textarea value={formData.paymentTerms || ''} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter payment terms" />
+                  <textarea value={formData.paymentTerms || ''} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-white/[0.04] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter payment terms" />
                 </div>
                 <div>
                   <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Notes</Label>
-                  <textarea value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter notes" />
+                  <textarea value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-white/[0.04] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter notes" />
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contracts</Label>
               <input type="file" multiple onChange={(e) => setContractFiles(Array.from(e.target.files || []))} className="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 mt-1" />
               <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs mt-2">Agreements</Label>
@@ -1233,8 +1233,8 @@ export default function AgenciesTable() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-          <button type="button" onClick={onCancel} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-medium text-sm border border-gray-300 dark:border-gray-600">Cancel</button>
+        <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.06]">
+          <button type="button" onClick={onCancel} className="bg-gray-100 dark:bg-white/[0.05] text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-xl hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-all duration-200 font-medium text-sm border border-gray-300 dark:border-white/[0.1]">Cancel</button>
           <button type="submit" className="bg-blue-600 text-white py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md border border-blue-600">Create Agency</button>
         </div>
       </form>
@@ -1968,12 +1968,12 @@ export default function AgenciesTable() {
 
       {/* Add Agency Form */}
       {showAddAgencyForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-white/[0.08] p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Add New Agency</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add New Agency</h2>
             <button
               onClick={() => setShowAddAgencyForm(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1989,17 +1989,17 @@ export default function AgenciesTable() {
 
       {/* Edit Agency Form Modal */}
       {isEditFormOpen && currentAgency && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-white/[0.08]">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Edit Agency</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Agency</h2>
                 <button
                   onClick={() => {
                     setIsEditFormOpen(false);
                     setCurrentAgency(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

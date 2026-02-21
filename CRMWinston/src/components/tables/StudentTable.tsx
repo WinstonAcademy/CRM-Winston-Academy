@@ -1609,7 +1609,7 @@ export default function StudentTable() {
         <div className="grid grid-cols-3 gap-2">
           {/* First Column - Personal Info */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1628,7 +1628,7 @@ export default function StudentTable() {
                     value={formData.regNo}
                     onChange={(e) => handleChange('regNo', e.target.value)}
                     placeholder="Enter registration number"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -1640,7 +1640,7 @@ export default function StudentTable() {
                     value={formData.name}
                     onChange={(e) => handleChange('name', e.target.value)}
                     placeholder="Enter full name"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -1652,7 +1652,7 @@ export default function StudentTable() {
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
                     placeholder="Enter email address"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -1664,7 +1664,7 @@ export default function StudentTable() {
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
                     placeholder="Enter phone number"
-                    className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                    className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                   />
                 </div>
 
@@ -1683,7 +1683,7 @@ export default function StudentTable() {
 
           {/* Second Column - Academic Details + Course */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1730,7 +1730,7 @@ export default function StudentTable() {
             </div>
 
             {/* Course Box Below Academic Details */}
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1749,7 +1749,7 @@ export default function StudentTable() {
             </div>
 
             {/* Dates Section */}
-            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-4 h-4 bg-purple-500 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1791,7 +1791,7 @@ export default function StudentTable() {
 
           {/* Third Column - Notes */}
           <div className="space-y-1">
-            <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-white/[0.03] p-3 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1809,7 +1809,7 @@ export default function StudentTable() {
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
                     placeholder="Enter general notes about this student..."
-                    className="h-32 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                    className="h-32 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
                   />
                 </div>
 
@@ -1820,7 +1820,7 @@ export default function StudentTable() {
                     value={formData.applicationStatus}
                     onChange={(e) => handleChange('applicationStatus', e.target.value)}
                     placeholder="Enter application status details..."
-                    className="h-32 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                    className="h-32 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
                   />
                 </div>
               </div>
@@ -2203,14 +2203,14 @@ export default function StudentTable() {
     ];
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-white/[0.08]">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Add New Student</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add New Student</h2>
               <button
                 onClick={onCancel}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2223,7 +2223,7 @@ export default function StudentTable() {
               <div className="grid grid-cols-3 gap-2">
                 {/* First Column - Personal Info */}
                 <div className="space-y-1">
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2242,7 +2242,7 @@ export default function StudentTable() {
                           value={formData.regNo}
                           onChange={(e) => handleChange('regNo', e.target.value)}
                           placeholder="Enter registration number"
-                          className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                          className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                         />
                       </div>
 
@@ -2254,7 +2254,7 @@ export default function StudentTable() {
                           value={formData.name}
                           onChange={(e) => handleChange('name', e.target.value)}
                           placeholder="Enter full name"
-                          className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                          className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                         />
                       </div>
 
@@ -2266,7 +2266,7 @@ export default function StudentTable() {
                           value={formData.email}
                           onChange={(e) => handleChange('email', e.target.value)}
                           placeholder="Enter email address"
-                          className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                          className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                         />
                       </div>
 
@@ -2278,7 +2278,7 @@ export default function StudentTable() {
                           value={formData.phone}
                           onChange={(e) => handleChange('phone', e.target.value)}
                           placeholder="Enter phone number"
-                          className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
+                          className="border-gray-200 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white focus:border-blue-400 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-900/50 text-sm py-1.5 w-full"
                         />
                       </div>
 
@@ -2297,7 +2297,7 @@ export default function StudentTable() {
 
                 {/* Second Column - Academic Details + Course */}
                 <div className="space-y-1">
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2346,7 +2346,7 @@ export default function StudentTable() {
                   </div>
 
                   {/* Course Box Below Academic Details */}
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2365,7 +2365,7 @@ export default function StudentTable() {
                   </div>
 
                   {/* Dates Section */}
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-4 h-4 bg-purple-500 rounded-lg flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2411,7 +2411,7 @@ export default function StudentTable() {
 
                 {/* Third Column - Notes */}
                 <div className="space-y-1">
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+                  <div className="bg-white dark:bg-white/[0.03] p-3 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2429,7 +2429,7 @@ export default function StudentTable() {
                           value={formData.notes}
                           onChange={(e) => handleChange('notes', e.target.value)}
                           placeholder="Enter general notes about this student..."
-                          className="h-32 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                          className="h-32 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
                         />
                       </div>
 
@@ -2440,7 +2440,7 @@ export default function StudentTable() {
                           value={formData.applicationStatus}
                           onChange={(e) => handleChange('applicationStatus', e.target.value)}
                           placeholder="Enter application status details..."
-                          className="h-32 w-full rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                          className="h-32 w-full rounded-lg border border-gray-200 dark:border-white/[0.08] px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 resize-none bg-gray-50 dark:bg-white/[0.04] focus:bg-white dark:focus:bg-white/[0.06] text-gray-900 dark:text-white transition-all duration-200"
                         />
                       </div>
                     </div>
@@ -2449,7 +2449,7 @@ export default function StudentTable() {
               </div>
 
               {/* Document Management Section - Horizontal Layout */}
-              <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-slate-500 rounded-lg flex items-center justify-center">
@@ -2485,7 +2485,7 @@ export default function StudentTable() {
                   {selectedFiles.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
                       {selectedFiles.map((file, index) => (
-                        <div key={`file-${file.name}-${file.size}-${index}-${Date.now()}`} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 group">
+                        <div key={`file-${file.name}-${file.size}-${index}-${Date.now()}`} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] rounded-xl hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.1] transition-all duration-200 group">
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <span className="text-xl">{getFileIcon(file.type || 'application/octet-stream')}</span>
                             <div className="min-w-0 flex-1">
@@ -2548,11 +2548,11 @@ export default function StudentTable() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.06]">
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600"
+                  className="bg-gray-100 dark:bg-white/[0.05] text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-xl hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 border border-gray-300 dark:border-white/[0.1]"
                 >
                   Cancel
                 </button>
