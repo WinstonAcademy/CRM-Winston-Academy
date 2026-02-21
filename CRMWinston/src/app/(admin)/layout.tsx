@@ -14,14 +14,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-  const { isEditFormOpen, isAddLeadFormOpen, isDocumentModalOpen } = useEditForm();
+  const { isEditFormOpen, isAddFormOpen, isDocumentModalOpen } = useEditForm();
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
     ? "ml-0"
     : isExpanded || isHovered
-    ? "lg:ml-[290px]"
-    : "lg:ml-[90px]";
+      ? "lg:ml-[290px]"
+      : "lg:ml-[90px]";
 
   return (
     <ProtectedRoute>
@@ -34,7 +34,7 @@ export default function AdminLayout({
           className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin} min-w-0 overflow-x-hidden`}
         >
           {/* Header - Hidden when any form or modal is open */}
-          {!isEditFormOpen && !isAddLeadFormOpen && !isDocumentModalOpen && <AppHeader />}
+          {!isEditFormOpen && !isAddFormOpen && !isDocumentModalOpen && <AppHeader />}
           {/* Page Content */}
           <div className="p-4 mx-auto max-w-full w-full min-w-0 md:p-6">{children}</div>
         </div>

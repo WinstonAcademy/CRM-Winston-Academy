@@ -6,6 +6,7 @@ import { simpleUserService, User } from "../../services/simpleUserService";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Select from "../form/Select";
+import { useEditForm } from "@/context/EditFormContext";
 
 const getRoleColor = (role: string) => {
   switch (role) {
@@ -39,9 +40,9 @@ export default function UserTable() {
   const { user: currentUser, refreshUser } = useAuth();
   const { canViewUsers, canCreateUsers, canEditUsers, canDeleteUsers, canManageRoles } = usePermissions();
   const [users, setUsers] = useState<User[]>([]);
+  const { isEditFormOpen, setIsEditFormOpen, isAddFormOpen, setIsAddFormOpen, isDocumentModalOpen, setIsDocumentModalOpen } = useEditForm();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -85,7 +86,7 @@ export default function UserTable() {
     try {
       await simpleUserService.createUser(userData);
       await fetchUsers();
-      setShowAddUserForm(false);
+      setIsAddFormOpen(false);
     } catch (error: unknown) {
       console.error('Error creating user:', error);
       alert(error instanceof Error ? error.message : 'Failed to create user');
@@ -278,7 +279,7 @@ export default function UserTable() {
           </button>
           {canCreateUsers() && (
             <button
-              onClick={() => setShowAddUserForm(true)}
+              onClick={() => setIsAddFormOpen(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Add User
@@ -528,14 +529,12 @@ export default function UserTable() {
       </div >
 
       {/* Add User Form Modal */}
-      {
-        showAddUserForm && (
-          <AddUserForm
-            onSave={handleCreateUser}
-            onCancel={() => setShowAddUserForm(false)}
-          />
-        )
-      }
+      {isAddFormOpen && (
+        <AddUserForm
+          onSave={handleCreateUser}
+          onCancel={() => setIsAddFormOpen(false)}
+        />
+      )}
 
       {/* Edit User Form Modal */}
       {
@@ -587,162 +586,175 @@ const AddUserForm: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 dark:bg-gray-800">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Add New User</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="username">Username *</Label>
-              <Input
-                id="username"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-          </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden border border-gray-200 dark:border-white/[0.08]">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-white/[0.06]">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Add New User</h3>
+          <button
+            onClick={onCancel}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200 p-2 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-full hover:scale-110"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              />
+        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 72px)' }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="username">Username *</Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              />
-            </div>
-            {/* Agencies Access Checkbox */}
-          </div>
-
-          <div className="space-y-4 border-t pt-4">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-white">Permissions</h4>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessLeads"
-                  checked={formData.canAccessLeads}
-                  onChange={(e) => setFormData({ ...formData, canAccessLeads: e.target.checked })}
-                  className="rounded border-gray-300"
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 />
-                <Label htmlFor="canAccessLeads">Can Access Leads</Label>
               </div>
-
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessStudents"
-                  checked={formData.canAccessStudents}
-                  onChange={(e) => setFormData({ ...formData, canAccessStudents: e.target.checked })}
-                  className="rounded border-gray-300"
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 />
-                <Label htmlFor="canAccessStudents">Can Access Students</Label>
               </div>
+              {/* Agencies Access Checkbox */}
+            </div>
 
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessAgencies"
-                  checked={formData.canAccessAgencies}
-                  onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
-              </div>
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white">Permissions</h4>
 
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessUsers"
-                  checked={formData.canAccessUsers}
-                  onChange={(e) => setFormData({ ...formData, canAccessUsers: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="canAccessUsers">Can Access Users</Label>
-              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessLeads"
+                    checked={formData.canAccessLeads}
+                    onChange={(e) => setFormData({ ...formData, canAccessLeads: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessLeads">Can Access Leads</Label>
+                </div>
 
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessAgencies"
-                  checked={formData.canAccessAgencies}
-                  onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
-              </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessStudents"
+                    checked={formData.canAccessStudents}
+                    onChange={(e) => setFormData({ ...formData, canAccessStudents: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessStudents">Can Access Students</Label>
+                </div>
 
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  id="canAccessDashboard"
-                  checked={formData.canAccessDashboard}
-                  onChange={(e) => setFormData({ ...formData, canAccessDashboard: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="canAccessDashboard">Can Access Dashboard</Label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessAgencies"
+                    checked={formData.canAccessAgencies}
+                    onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessUsers"
+                    checked={formData.canAccessUsers}
+                    onChange={(e) => setFormData({ ...formData, canAccessUsers: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessUsers">Can Access Users</Label>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessAgencies"
+                    checked={formData.canAccessAgencies}
+                    onChange={(e) => setFormData({ ...formData, canAccessAgencies: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessAgencies">Can Access Agencies</Label>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    id="canAccessDashboard"
+                    checked={formData.canAccessDashboard}
+                    onChange={(e) => setFormData({ ...formData, canAccessDashboard: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="canAccessDashboard">Can Access Dashboard</Label>
+                </div>
               </div>
             </div>
-          </div>
 
 
-          <div>
-            <Label htmlFor="role">Role *</Label>
-            <Select
-              value={formData.role}
-              onChange={(value) => setFormData({ ...formData, role: value as any })}
-              options={[
-                { value: "team_member", label: "Team Member" },
-                { value: "admin", label: "Admin" }
-              ]}
-            />
-          </div>
+            <div>
+              <Label htmlFor="role">Role *</Label>
+              <Select
+                value={formData.role}
+                onChange={(value) => setFormData({ ...formData, role: value as any })}
+                options={[
+                  { value: "team_member", label: "Team Member" },
+                  { value: "admin", label: "Admin" }
+                ]}
+              />
+            </div>
 
-          <div className="flex items-center gap-4">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="rounded border-gray-300"
-            />
-            <Label htmlFor="isActive">Active</Label>
-          </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="isActive">Active</Label>
+            </div>
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Create User
-            </button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                Create User
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

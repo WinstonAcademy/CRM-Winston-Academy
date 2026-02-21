@@ -58,14 +58,13 @@ const getFileIcon = (mimeType: string | undefined) => {
 };
 
 export default function StudentTable() {
-  const { isEditFormOpen, setIsEditFormOpen, isAddLeadFormOpen, setIsAddLeadFormOpen, isDocumentModalOpen, setIsDocumentModalOpen } = useEditForm();
+  const { isEditFormOpen, setIsEditFormOpen, isAddFormOpen, setIsAddFormOpen, isDocumentModalOpen, setIsDocumentModalOpen } = useEditForm();
 
   // State variables
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
-  const [showAddStudentForm, setShowAddStudentForm] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -587,7 +586,7 @@ export default function StudentTable() {
   };
 
   const handleAddStudent = () => {
-    setShowAddStudentForm(true);
+    setIsAddFormOpen(true);
   };
 
   const handleSaveNewStudent = async (studentData: CreateStudentData, files: File[]) => {
@@ -712,7 +711,7 @@ export default function StudentTable() {
       }
 
       // Add the new student to the local state
-      setShowAddStudentForm(false);
+      setIsAddFormOpen(false);
       alert('Student created successfully!');
       await fetchStudents();
     } catch (error) {
@@ -2204,23 +2203,23 @@ export default function StudentTable() {
 
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-white/[0.08]">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add New Student</h2>
-              <button
-                onClick={onCancel}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden border border-gray-200 dark:border-white/[0.08]">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-white/[0.06]">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Add New Student</h3>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200 p-2 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-full hover:scale-110"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-2">
+          <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 72px)' }}>
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Three Column Layout for Better Organization */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* First Column - Personal Info */}
                 <div className="space-y-1">
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-gray-200 dark:border-white/[0.06] shadow-sm backdrop-blur-sm">
@@ -2548,7 +2547,7 @@ export default function StudentTable() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.06]">
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
                 <button
                   type="button"
                   onClick={onCancel}
@@ -2558,12 +2557,22 @@ export default function StudentTable() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-blue-600"
+                  disabled={isSubmitting}
+                  className="bg-blue-600 text-white py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-105 border border-blue-600 disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create Student
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create Student
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -3750,10 +3759,10 @@ export default function StudentTable() {
       )}
 
       {/* Add Student Form Modal */}
-      {showAddStudentForm && (
+      {isAddFormOpen && (
         <AddStudentForm
           onSave={handleSaveNewStudent}
-          onCancel={() => setShowAddStudentForm(false)}
+          onCancel={() => setIsAddFormOpen(false)}
         />
       )}
     </div>

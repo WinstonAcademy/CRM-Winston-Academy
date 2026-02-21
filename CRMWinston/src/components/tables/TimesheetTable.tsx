@@ -9,6 +9,7 @@ import TimePicker from "../form/TimePicker";
 import { API_CONFIG } from "../../config/api";
 import { realBackendAuthService } from "../../services/realBackendAuthService";
 import { useAuth } from "../../context/AuthContext";
+import { useEditForm } from "../../context/EditFormContext";
 import TimesheetCalendar from "./TimesheetCalendar";
 
 // Timesheet interface
@@ -96,7 +97,7 @@ const getLocationColor = (location: string | undefined) => {
 };
 
 export default function TimesheetTable() {
-  // Removed unused useEditForm
+  const { isAddFormOpen, setIsAddFormOpen, isEditFormOpen, setIsEditFormOpen } = useEditForm();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.userRole === 'admin';
 
@@ -105,8 +106,6 @@ export default function TimesheetTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTimesheet, setCurrentTimesheet] = useState<Timesheet | null>(null);
-  const [showAddTimesheetForm, setShowAddTimesheetForm] = useState(false);
-  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [selectedTimesheets, setSelectedTimesheets] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -768,7 +767,7 @@ export default function TimesheetTable() {
       console.log('✅ Timesheet created - Full response:', result);
       console.log('📊 New timesheet totalHours:', newTimesheet.totalHours, '(type:', typeof newTimesheet.totalHours, ')');
       setTimesheets(prev => [...prev, newTimesheet]);
-      setShowAddTimesheetForm(false);
+      setIsAddFormOpen(false);
       alert('Timesheet added successfully!');
     } catch (error) {
       console.error('Error creating timesheet:', error);
@@ -1419,307 +1418,319 @@ export default function TimesheetTable() {
       )}
 
       {/* Add Timesheet Modal */}
-      {showAddTimesheetForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Add Timesheet Entry</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveNewTimesheet({
-                  date: addFormData.date,
-                  startTime: addFormData.startTime,
-                  endTime: addFormData.endTime,
-                  notes: addFormData.notes,
-                  location: addFormData.location,
-                  employee: isAdmin && addFormData.employee ? Number(addFormData.employee) : undefined,
-                });
-              }}
-              className="space-y-4"
-            >
-              {isAdmin && (
-                <div>
-                  <Label htmlFor="add-employee">Employee</Label>
-                  <Select
-                    value={addFormData.employee}
-                    onChange={(value) => setAddFormData(prev => ({ ...prev, employee: value }))}
-                    options={allUsers.map(u => ({
-                      value: u.id.toString(),
-                      label: `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()
-                    }))}
-                  />
-                </div>
-              )}
-              <div>
-                <Label htmlFor="add-date">Date</Label>
-                <Input
-                  type="date"
-                  id="add-date"
-                  value={addFormData.date}
-                  onChange={(e) => setAddFormData(prev => ({ ...prev, date: e.target.value }))}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="add-startTime">Start Time</Label>
-                  <TimePicker
-                    id="add-startTime"
-                    value={addFormData.startTime}
-                    onChange={(val) => setAddFormData(prev => ({ ...prev, startTime: val }))}
-                    placeholder="Start time"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="add-endTime">End Time</Label>
-                  <TimePicker
-                    id="add-endTime"
-                    value={addFormData.endTime}
-                    onChange={(val) => setAddFormData(prev => ({ ...prev, endTime: val }))}
-                    placeholder="End time"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="add-location">Location</Label>
-                <Select
-                  value={addFormData.location}
-                  onChange={(value) => setAddFormData(prev => ({ ...prev, location: value as any }))}
-                  defaultValue="Office"
-                  options={[
-                    { value: 'Office', label: 'Office' },
-                    { value: 'Work from Home', label: 'Work from Home' }
-                  ]}
-                />
-              </div>
-              <div>
-                <Label htmlFor="add-notes">Notes</Label>
-                <textarea
-                  id="add-notes"
-                  value={addFormData.notes}
-                  onChange={(e) => setAddFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  rows={3}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTimesheetForm(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {isAddFormOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden border border-gray-200 dark:border-white/[0.08]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-white/[0.06]">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Add Timesheet Entry</h3>
+              <button
+                onClick={() => setIsAddFormOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200 p-2 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-full hover:scale-110"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-      {/* Edit Timesheet Modal */}
-      {isEditFormOpen && currentTimesheet && (() => {
-        // Use a sub-component pattern via IIFE to allow hooks-like state
-        // We use hidden inputs to work with FormData while showing TimePicker
-        const EditTimesheetForm = () => {
-          const [editStartTime, setEditStartTime] = useState(currentTimesheet.startTime || '');
-          const [editEndTime, setEditEndTime] = useState(currentTimesheet.endTime || '');
-          return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Edit Timesheet Entry</h2>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    handleUpdateTimesheet(currentTimesheet.id, {
-                      date: formData.get('date') as string,
-                      startTime: formData.get('startTime') as string,
-                      endTime: formData.get('endTime') as string,
-                      notes: formData.get('notes') as string,
-                      location: formData.get('location') as "Office" | "Work from Home",
-                      employee: isAdmin ? Number(formData.get('employee')) : undefined,
-                    });
-                  }}
-                  className="space-y-4"
-                >
-                  {isAdmin && (
-                    <div>
-                      <Label htmlFor="edit-employee">Employee</Label>
-                      <select
-                        name="employee"
-                        defaultValue={currentTimesheet.employee?.id.toString()}
-                        className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-                      >
-                        {allUsers.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {`${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 72px)' }}>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveNewTimesheet({
+                    date: addFormData.date,
+                    startTime: addFormData.startTime,
+                    endTime: addFormData.endTime,
+                    notes: addFormData.notes,
+                    location: addFormData.location,
+                    employee: isAdmin && addFormData.employee ? Number(addFormData.employee) : undefined,
+                  });
+                }}
+                className="space-y-4"
+              >
+                {isAdmin && (
                   <div>
-                    <Label htmlFor="edit-date">Date</Label>
-                    <Input type="date" name="date" defaultValue={currentTimesheet.date} disabled={!isAdmin} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="edit-startTime">Start Time</Label>
-                      <input type="hidden" name="startTime" value={editStartTime} />
-                      <TimePicker
-                        id="edit-startTime"
-                        value={editStartTime}
-                        onChange={setEditStartTime}
-                        placeholder="Start time"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="edit-endTime">End Time</Label>
-                      <input type="hidden" name="endTime" value={editEndTime} />
-                      <TimePicker
-                        id="edit-endTime"
-                        value={editEndTime}
-                        onChange={setEditEndTime}
-                        placeholder="End time"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-location">Location</Label>
-                    <select
-                      name="location"
-                      defaultValue={currentTimesheet.location}
-                      className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-                    >
-                      <option value="Office">Office</option>
-                      <option value="Work from Home">Work from Home</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-notes">Notes</Label>
-                    <textarea
-                      name="notes"
-                      defaultValue={currentTimesheet.notes}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      rows={3}
-                      required
+                    <Label htmlFor="add-employee">Employee</Label>
+                    <Select
+                      value={addFormData.employee}
+                      onChange={(value) => setAddFormData(prev => ({ ...prev, employee: value }))}
+                      options={allUsers.map(u => ({
+                        value: u.id.toString(),
+                        label: `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()
+                      }))}
                     />
                   </div>
-                  <div className="flex justify-end gap-2 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditFormOpen(false)}
-                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-                    >
-                      Update
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          );
-        };
-        return <EditTimesheetForm />;
-      })()}
-
-      {/* Clock In Modal */}
-      {
-        showClockInModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
-              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock In</h2>
-              <div className="space-y-4">
+                )}
                 <div>
-                  <Label htmlFor="clockInLocation">Location</Label>
+                  <Label htmlFor="add-date">Date</Label>
+                  <Input
+                    type="date"
+                    id="add-date"
+                    value={addFormData.date}
+                    onChange={(e) => setAddFormData(prev => ({ ...prev, date: e.target.value }))}
+                    disabled={!isAdmin}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="add-startTime">Start Time</Label>
+                    <TimePicker
+                      id="add-startTime"
+                      value={addFormData.startTime}
+                      onChange={(val) => setAddFormData(prev => ({ ...prev, startTime: val }))}
+                      placeholder="Start time"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="add-endTime">End Time</Label>
+                    <TimePicker
+                      id="add-endTime"
+                      value={addFormData.endTime}
+                      onChange={(val) => setAddFormData(prev => ({ ...prev, endTime: val }))}
+                      placeholder="End time"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="add-location">Location</Label>
                   <Select
-                    value={clockInLocation}
-                    onChange={(value) => setClockInLocation(value as "Office" | "Work from Home")}
+                    value={addFormData.location}
+                    onChange={(value) => setAddFormData(prev => ({ ...prev, location: value as any }))}
+                    defaultValue="Office"
                     options={[
                       { value: 'Office', label: 'Office' },
                       { value: 'Work from Home', label: 'Work from Home' }
                     ]}
                   />
                 </div>
-                <div className="flex justify-end gap-2 mt-6">
-                  <button
-                    onClick={() => setShowClockInModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleClockInSubmit}
-                    className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
-                  >
-                    Confirm Clock In
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Clock Out Modal */}
-      {
-        showClockOutModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
-              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock Out</h2>
-              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="clockOutNotes">What did you work on today?</Label>
+                  <Label htmlFor="add-notes">Notes</Label>
                   <textarea
-                    id="clockOutNotes"
-                    value={clockOutNotes}
-                    onChange={(e) => setClockOutNotes(e.target.value)}
+                    id="add-notes"
+                    value={addFormData.notes}
+                    onChange={(e) => setAddFormData(prev => ({ ...prev, notes: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     rows={3}
-                    placeholder="Summarize your tasks..."
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="clockOutNoteToAdmin">Note to Admin (Optional)</Label>
-                  <Input
-                    id="clockOutNoteToAdmin"
-                    value={clockOutNoteToAdmin}
-                    onChange={(e) => setClockOutNoteToAdmin(e.target.value)}
-                    placeholder="Any issues or requests?"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 mt-6">
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => setShowClockOutModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    type="button"
+                    onClick={() => setIsAddFormOpen(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleClockOutSubmit}
-                    className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
                   >
-                    Confirm Clock Out
+                    Save
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
-        )
-      }
-    </div>
-  );
+      )}
+
+          {/* Edit Timesheet Modal */}
+          {isEditFormOpen && currentTimesheet && (() => {
+            // Use a sub-component pattern via IIFE to allow hooks-like state
+            // We use hidden inputs to work with FormData while showing TimePicker
+            const EditTimesheetForm = () => {
+              const [editStartTime, setEditStartTime] = useState(currentTimesheet.startTime || '');
+              const [editEndTime, setEditEndTime] = useState(currentTimesheet.endTime || '');
+              return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+                    <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Edit Timesheet Entry</h2>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        handleUpdateTimesheet(currentTimesheet.id, {
+                          date: formData.get('date') as string,
+                          startTime: formData.get('startTime') as string,
+                          endTime: formData.get('endTime') as string,
+                          notes: formData.get('notes') as string,
+                          location: formData.get('location') as "Office" | "Work from Home",
+                          employee: isAdmin ? Number(formData.get('employee')) : undefined,
+                        });
+                      }}
+                      className="space-y-4"
+                    >
+                      {isAdmin && (
+                        <div>
+                          <Label htmlFor="edit-employee">Employee</Label>
+                          <select
+                            name="employee"
+                            defaultValue={currentTimesheet.employee?.id.toString()}
+                            className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                          >
+                            {allUsers.map(u => (
+                              <option key={u.id} value={u.id}>
+                                {`${u.firstName || ''} ${u.lastName || ''} ${u.username || ''}`.trim()}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div>
+                        <Label htmlFor="edit-date">Date</Label>
+                        <Input type="date" name="date" defaultValue={currentTimesheet.date} disabled={!isAdmin} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="edit-startTime">Start Time</Label>
+                          <input type="hidden" name="startTime" value={editStartTime} />
+                          <TimePicker
+                            id="edit-startTime"
+                            value={editStartTime}
+                            onChange={setEditStartTime}
+                            placeholder="Start time"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-endTime">End Time</Label>
+                          <input type="hidden" name="endTime" value={editEndTime} />
+                          <TimePicker
+                            id="edit-endTime"
+                            value={editEndTime}
+                            onChange={setEditEndTime}
+                            placeholder="End time"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-location">Location</Label>
+                        <select
+                          name="location"
+                          defaultValue={currentTimesheet.location}
+                          className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                        >
+                          <option value="Office">Office</option>
+                          <option value="Work from Home">Work from Home</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-notes">Notes</Label>
+                        <textarea
+                          name="notes"
+                          defaultValue={currentTimesheet.notes}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          rows={3}
+                          required
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 mt-6">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditFormOpen(false)}
+                          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                        >
+                          Update
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              );
+            };
+            return <EditTimesheetForm />;
+          })()}
+
+          {/* Clock In Modal */}
+          {
+            showClockInModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock In</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="clockInLocation">Location</Label>
+                      <Select
+                        value={clockInLocation}
+                        onChange={(value) => setClockInLocation(value as "Office" | "Work from Home")}
+                        options={[
+                          { value: 'Office', label: 'Office' },
+                          { value: 'Work from Home', label: 'Work from Home' }
+                        ]}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-6">
+                      <button
+                        onClick={() => setShowClockInModal(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleClockInSubmit}
+                        className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+                      >
+                        Confirm Clock In
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          {/* Clock Out Modal */}
+          {
+            showClockOutModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock Out</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="clockOutNotes">What did you work on today?</Label>
+                      <textarea
+                        id="clockOutNotes"
+                        value={clockOutNotes}
+                        onChange={(e) => setClockOutNotes(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        rows={3}
+                        placeholder="Summarize your tasks..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="clockOutNoteToAdmin">Note to Admin (Optional)</Label>
+                      <Input
+                        id="clockOutNoteToAdmin"
+                        value={clockOutNoteToAdmin}
+                        onChange={(e) => setClockOutNoteToAdmin(e.target.value)}
+                        placeholder="Any issues or requests?"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-6">
+                      <button
+                        onClick={() => setShowClockOutModal(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleClockOutSubmit}
+                        className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+                      >
+                        Confirm Clock Out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+        </div>
+      );
 }

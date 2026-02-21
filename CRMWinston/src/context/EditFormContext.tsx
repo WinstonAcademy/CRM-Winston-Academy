@@ -5,8 +5,8 @@ import React, { createContext, useContext, useState } from "react";
 type EditFormContextType = {
   isEditFormOpen: boolean;
   setIsEditFormOpen: (open: boolean) => void;
-  isAddLeadFormOpen: boolean;
-  setIsAddLeadFormOpen: (open: boolean) => void;
+  isAddFormOpen: boolean;
+  setIsAddFormOpen: (open: boolean) => void;
   isDocumentModalOpen: boolean;
   setIsDocumentModalOpen: (open: boolean) => void;
 };
@@ -17,15 +17,15 @@ export const EditFormProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
-  const [isAddLeadFormOpen, setIsAddLeadFormOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
 
   return (
-    <EditFormContext.Provider value={{ 
-      isEditFormOpen, 
+    <EditFormContext.Provider value={{
+      isEditFormOpen,
       setIsEditFormOpen,
-      isAddLeadFormOpen,
-      setIsAddLeadFormOpen,
+      isAddFormOpen,
+      setIsAddFormOpen,
       isDocumentModalOpen,
       setIsDocumentModalOpen
     }}>
