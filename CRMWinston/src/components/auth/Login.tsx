@@ -8,41 +8,9 @@ import { useTheme } from '../../context/ThemeContext';
 
 const HERO_IMAGE = "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1920&q=80";
 
-const testimonials = [
-  {
-    avatarSrc: "https://randomuser.me/api/portraits/women/57.jpg",
-    name: "Sarah Chen",
-    handle: "@sarahdigital",
-    text: "The CRM has streamlined our entire admissions process. Everything is at our fingertips.",
-  },
-  {
-    avatarSrc: "https://randomuser.me/api/portraits/men/64.jpg",
-    name: "Marcus Johnson",
-    handle: "@marcustech",
-    text: "Clean design, powerful features. This platform transformed how we manage student data.",
-  },
-  {
-    avatarSrc: "https://randomuser.me/api/portraits/men/32.jpg",
-    name: "David Martinez",
-    handle: "@davidcreates",
-    text: "Intuitive, reliable, and genuinely helpful for productivity across the academy.",
-  },
-];
-
 const GlassInputWrapper = ({ children }: { children: React.ReactNode }) => (
   <div className="mt-1.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-900/5 dark:bg-white/5 backdrop-blur-sm transition-colors focus-within:border-brand-400/70 focus-within:bg-brand-500/10">
     {children}
-  </div>
-);
-
-const TestimonialCard = ({ testimonial, delay }: { testimonial: typeof testimonials[0]; delay: string }) => (
-  <div className={`animate-testimonial ${delay} flex items-start gap-3 rounded-3xl bg-white/30 dark:bg-gray-800/40 backdrop-blur-xl border border-white/20 p-5 w-64`}>
-    <img src={testimonial.avatarSrc} className="h-10 w-10 object-cover rounded-2xl" alt="avatar" />
-    <div className="text-sm leading-snug">
-      <p className="flex items-center gap-1 font-medium text-white">{testimonial.name}</p>
-      <p className="text-white/60">{testimonial.handle}</p>
-      <p className="mt-1 text-white/80">{testimonial.text}</p>
-    </div>
   </div>
 );
 
@@ -214,21 +182,12 @@ const Login: React.FC = () => {
         </div>
       </section>
 
-      {/* Right column: hero image + testimonials */}
+      {/* Right column: hero image */}
       <section className="hidden md:block flex-1 relative p-4">
         <div
           className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-cover bg-center"
           style={{ backgroundImage: `url(${HERO_IMAGE})` }}
         />
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 px-8 w-full justify-center z-10">
-          <TestimonialCard testimonial={testimonials[0]} delay="animate-delay-1000" />
-          <div className="hidden xl:flex">
-            <TestimonialCard testimonial={testimonials[1]} delay="animate-delay-1200" />
-          </div>
-          <div className="hidden 2xl:flex">
-            <TestimonialCard testimonial={testimonials[2]} delay="animate-delay-1400" />
-          </div>
-        </div>
       </section>
     </div>
   );
