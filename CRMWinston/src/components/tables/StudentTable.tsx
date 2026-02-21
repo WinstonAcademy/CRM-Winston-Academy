@@ -684,7 +684,6 @@ export default function StudentTable() {
             const uploadedFilesData = await uploadResponse.json();
             console.log('✅ Files uploaded successfully:', uploadedFilesData);
 
-            // Associate documents with the student
             const docIds = uploadedFilesData.map((file: any) => file.id);
             const associateResponse = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${createdStudent.data.id}`, {
               method: 'PUT',
@@ -694,9 +693,7 @@ export default function StudentTable() {
               },
               body: JSON.stringify({
                 data: {
-                  documents: {
-                    connect: docIds
-                  }
+                  documents: docIds
                 }
               }),
             });
@@ -715,19 +712,9 @@ export default function StudentTable() {
       }
 
       // Add the new student to the local state
-      const newStudent: Partial<Student> = {
-        id: createdStudent.data.id,
-        ...studentData,
-        documents: []
-      };
-
-      setStudents(prev => [newStudent as Student, ...prev]);
       setShowAddStudentForm(false);
-
       alert('Student created successfully!');
-
-      // Refresh the students list to get the actual data from backend
-      fetchStudents();
+      await fetchStudents();
     } catch (error) {
       console.error('❌ Error creating student:', error);
       alert('Error creating student. Check console for details.');
@@ -1127,27 +1114,18 @@ export default function StudentTable() {
         console.log('🔗 Associating documents with student:', { studentId, allDocIds });
         console.log('📝 Current student data:', currentStudent);
 
-        // Try different field names that Strapi might expect
         const updatePayload = {
           data: {
-            // Try the connect syntax that Strapi sometimes expects for relations
-            Documents: {
-              connect: allDocIds
-            }
+            documents: allDocIds
           }
         };
 
-        console.log('📤 Update payload structure:', updatePayload);
-
-        console.log('📤 Sending update payload:', updatePayload);
-
-        console.log('📤 Sending update payload:', updatePayload);
-        console.log('📤 Update URL:', `${API_CONFIG.STRAPI_URL}/api/students/${studentId}`);
-
+        const token = realBackendAuthService.getCurrentToken();
         const updateResponse = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${studentId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           },
           body: JSON.stringify(updatePayload),
         });
@@ -1375,10 +1353,12 @@ export default function StudentTable() {
           let successCount = 0;
           let errorCount = 0;
 
+          const token = realBackendAuthService.getCurrentToken();
           for (const studentId of selectedStudentIds) {
             try {
               const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${studentId}`, {
                 method: 'DELETE',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
               });
 
               if (response.ok) {
@@ -2051,12 +2031,11 @@ export default function StudentTable() {
     );
   };
 
-  // Add Student Form Component
   const AddStudentForm: React.FC<{
-    onSave: (data: CreateStudentData, files: File[]) => void;
+    onSave: (data: CreateStudentData, files: File[]) => void | Promise<void>;
     onCancel: () => void;
   }> = ({ onSave, onCancel }) => {
-    console.log('AddStudentForm: Component rendered/re-rendered');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState<CreateStudentData>({
       name: '',
       email: '',
@@ -2083,28 +2062,25 @@ export default function StudentTable() {
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isSubmitting) return;
 
-      // Validate required fields
       if (!formData.name.trim() || !formData.email.trim() || !formData.phone?.trim()) {
         alert('Please fill in all required fields (Name, Email, Phone)');
         return;
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         alert('Please enter a valid email address');
         return;
       }
 
-      // Validate phone format (basic validation)
       const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
       if (formData.phone && !phoneRegex.test(formData.phone.replace(/[\s\-\(\)]/g, ''))) {
         alert('Please enter a valid phone number');
         return;
       }
 
-      // Check if registration number is already in use (if provided)
       if (formData.regNo && formData.regNo.trim()) {
         const existingStudent = students.find(student =>
           student.regNo && student.regNo.toLowerCase() === formData.regNo?.toLowerCase()
@@ -2115,8 +2091,12 @@ export default function StudentTable() {
         }
       }
 
-      // Call the onSave callback with the student data and selected files
-      onSave(formData, selectedFiles);
+      setIsSubmitting(true);
+      try {
+        await onSave(formData, selectedFiles);
+      } finally {
+        setIsSubmitting(false);
+      }
     };
 
     const handleChange = (field: string, value: string) => {

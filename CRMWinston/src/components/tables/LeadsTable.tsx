@@ -1576,9 +1576,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           }
         }
 
-        setLeads(prev => [...prev, finalLeadData]);
         setIsAddLeadFormOpen(false);
-        alert('Lead added successfully!' + (files.length > 0 ? ' Check console for document upload status.' : ''));
+        alert('Lead added successfully!');
+        await fetchLeads();
       } else {
         const errorText = await response.text();
         console.error('Failed to add lead. Error:', errorText);
@@ -2418,9 +2418,10 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
   // Add Lead Form Component
   const AddLeadForm: React.FC<{
-    onSave: (data: Partial<Lead>, files: File[]) => void;
+    onSave: (data: Partial<Lead>, files: File[]) => void | Promise<void>;
     onCancel: () => void;
   }> = ({ onSave, onCancel }) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
       Name: '',
       Phone: '',
@@ -2438,21 +2439,25 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isSubmitting) return;
 
-      // Validate required fields
       if (!formData.Name.trim() || !formData.Phone.trim() || !formData.Email.trim()) {
         alert('Please fill in all required fields (Name, Phone, Email)');
         return;
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.Email)) {
         alert('Please enter a valid email address');
         return;
       }
 
-      onSave(formData, selectedFiles);
+      setIsSubmitting(true);
+      try {
+        await onSave(formData, selectedFiles);
+      } finally {
+        setIsSubmitting(false);
+      }
     };
 
     const handleChange = (field: string, value: string) => {

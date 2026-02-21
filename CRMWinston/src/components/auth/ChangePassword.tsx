@@ -97,7 +97,10 @@ const ChangePassword: React.FC = () => {
         throw new Error(data.error?.message || 'Failed to change password');
       }
 
-      // Password changed successfully, redirect to dashboard
+      // Mark password as changed so user isn't prompted again
+      if (user?.id) {
+        localStorage.setItem(`password_changed_${user.id}`, 'true');
+      }
       router.push('/');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to change password. Please try again.';
