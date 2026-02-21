@@ -76,10 +76,63 @@ export default function TimesheetCalendar({ timesheets }: TimesheetCalendarProps
           --fc-list-event-hover-bg-color: #374151;
           --fc-border-color: #374151;
           --fc-theme-standard-border-color: #374151;
+          --fc-today-bg-color: rgba(59, 130, 246, 0.15);
         }
         .dark .fc-col-header-cell-cushion,
         .dark .fc-daygrid-day-number {
           color: #e5e7eb;
+        }
+        .dark .fc-toolbar-title {
+          color: #f3f4f6;
+        }
+        .dark .fc-button {
+          background-color: #3b82f6;
+          border-color: #3b82f6;
+          color: #fff;
+        }
+        .dark .fc-button:hover {
+          background-color: #2563eb;
+          border-color: #2563eb;
+        }
+        .dark .fc-button-active {
+          background-color: #1d4ed8 !important;
+          border-color: #1d4ed8 !important;
+        }
+        .dark .fc-button:disabled {
+          background-color: #374151;
+          border-color: #374151;
+          color: #9ca3af;
+        }
+        .dark .fc-scrollgrid {
+          border-color: #374151;
+        }
+        .dark .fc td, .dark .fc th {
+          border-color: #374151;
+        }
+        .dark .fc-daygrid-day {
+          background-color: #111827;
+        }
+        .dark .fc-daygrid-day:hover {
+          background-color: #1f2937;
+        }
+        .dark .fc-daygrid-day-frame {
+          color: #d1d5db;
+        }
+        .dark .fc-day-other .fc-daygrid-day-number {
+          color: #6b7280;
+        }
+        .dark .fc-timegrid-slot-label {
+          color: #9ca3af;
+        }
+        .dark .fc-timegrid-axis-cushion {
+          color: #9ca3af;
+        }
+        .dark .fc-list-day-cushion {
+          background-color: #1f2937;
+          color: #e5e7eb;
+        }
+        .dark .fc-list-event:hover td {
+          background-color: #374151;
         }
       `}</style>
             <FullCalendar

@@ -827,8 +827,9 @@ export default function AgenciesTable() {
     }
   };
 
-  // Get unique countries for filter
   const uniqueCountries = Array.from(new Set(agencies.map(a => a.country).filter(Boolean))).sort();
+
+  const allCountries = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Democratic Republic of the Congo","Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Ivory Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
 
   if (loading && agencies.length === 0) {
     return (
@@ -929,7 +930,7 @@ export default function AgenciesTable() {
               required
             >
               <option value="">Select Country</option>
-              {uniqueCountries.map(country => (
+              {allCountries.map(country => (
                 <option key={country} value={country}>{country}</option>
               ))}
             </Select>
@@ -1052,11 +1053,11 @@ export default function AgenciesTable() {
             />
           </div>
         </div>
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
           >
             Cancel
           </button>
@@ -1071,7 +1072,6 @@ export default function AgenciesTable() {
     );
   };
 
-  // Add Agency Form Component
   const AddAgencyForm: React.FC<{
     onSave: (data: CreateAgencyData, contractFiles: File[], agreementFiles: File[]) => void;
     onCancel: () => void;
@@ -1090,202 +1090,152 @@ export default function AgenciesTable() {
       onSave(formData, contractFiles, agreementFiles);
     };
 
+    const statusOptions = [
+      { value: "Active", label: "Active" },
+      { value: "Inactive", label: "Inactive" },
+      { value: "Suspended", label: "Suspended" },
+    ];
+    const commissionTypeOptions = [
+      { value: "", label: "Select Type" },
+      { value: "percentage", label: "Percentage" },
+      { value: "flat", label: "Flat" },
+      { value: "tiered", label: "Tiered" },
+    ];
+    const countryOpts = allCountries.map(c => ({ value: c, label: c }));
+
     return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="add-agencyName">Agency Name *</Label>
-            <Input
-              id="add-agencyName"
-              value={formData.agencyName}
-              onChange={(e) => setFormData({ ...formData, agencyName: e.target.value })}
-              required
-            />
+      <form onSubmit={handleSubmit} className="p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          {/* Column 1 - Agency Info */}
+          <div className="space-y-2">
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                </div>
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Agency Info</h4>
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <Label htmlFor="add-agencyName" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Agency Name *</Label>
+                  <Input id="add-agencyName" value={formData.agencyName} onChange={(e) => setFormData({ ...formData, agencyName: e.target.value })} placeholder="Enter agency name" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" required />
+                </div>
+                <div>
+                  <Label htmlFor="add-registrationNumber" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Registration Number</Label>
+                  <Input id="add-registrationNumber" value={formData.registrationNumber || ''} onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} placeholder="Enter registration number" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+                <div>
+                  <Label htmlFor="add-agencyEmail" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Agency Email *</Label>
+                  <Input id="add-agencyEmail" type="email" value={formData.agencyEmail || ''} onChange={(e) => setFormData({ ...formData, agencyEmail: e.target.value })} placeholder="Enter email" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" required />
+                </div>
+                <div>
+                  <Label htmlFor="add-website" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Website</Label>
+                  <Input id="add-website" type="url" value={formData.website || ''} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+                <div>
+                  <Label htmlFor="add-country" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Country *</Label>
+                  <Select options={countryOpts} value={formData.country} onChange={(value) => setFormData({ ...formData, country: value })} placeholder="Select country" />
+                </div>
+                <div>
+                  <Label htmlFor="add-status" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Status</Label>
+                  <Select options={statusOptions} value={formData.status || 'Active'} onChange={(value) => setFormData({ ...formData, status: value as any })} placeholder="Select status" />
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <Label htmlFor="add-registrationNumber">Registration Number</Label>
-            <Input
-              id="add-registrationNumber"
-              value={formData.registrationNumber || ''}
-              onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-            />
+
+          {/* Column 2 - Contact & Contract */}
+          <div className="space-y-2">
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 bg-green-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                </div>
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Primary Contact</h4>
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Name</Label>
+                  <Input value={formData.primaryContactName || ''} onChange={(e) => setFormData({ ...formData, primaryContactName: e.target.value })} placeholder="Contact name" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Email</Label>
+                  <Input type="email" value={formData.primaryContactEmail || ''} onChange={(e) => setFormData({ ...formData, primaryContactEmail: e.target.value })} placeholder="Contact email" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contact Phone</Label>
+                  <Input value={formData.primaryContactPhone || ''} onChange={(e) => setFormData({ ...formData, primaryContactPhone: e.target.value })} placeholder="Contact phone" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 bg-amber-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Commission</h4>
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Commission Rate (%)</Label>
+                  <Input type="number" step={0.01} value={formData.commissionRate || ''} onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) || undefined })} placeholder="e.g. 10" className="border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-1.5 w-full" />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Commission Type</Label>
+                  <Select options={commissionTypeOptions} value={formData.commissionType || ''} onChange={(value) => setFormData({ ...formData, commissionType: value as any })} placeholder="Select type" />
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="col-span-2">
-            <Label htmlFor="add-address">Address</Label>
-            <textarea
-              id="add-address"
-              value={formData.address || ''}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              rows={2}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-country">Country *</Label>
-            <Select
-              id="add-country"
-              value={formData.country}
-              onChange={(value) => setFormData({ ...formData, country: value })}
-              required
-            >
-              <option value="">Select Country</option>
-              {uniqueCountries.map(country => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="add-website">Website</Label>
-            <Input
-              id="add-website"
-              type="url"
-              value={formData.website || ''}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-agencyEmail">Agency Email *</Label>
-            <Input
-              id="add-agencyEmail"
-              type="email"
-              value={formData.agencyEmail || ''}
-              onChange={(e) => setFormData({ ...formData, agencyEmail: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-primaryContactName">Primary Contact Name</Label>
-            <Input
-              id="add-primaryContactName"
-              value={formData.primaryContactName || ''}
-              onChange={(e) => setFormData({ ...formData, primaryContactName: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-primaryContactEmail">Primary Contact Email</Label>
-            <Input
-              id="add-primaryContactEmail"
-              type="email"
-              value={formData.primaryContactEmail || ''}
-              onChange={(e) => setFormData({ ...formData, primaryContactEmail: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-primaryContactPhone">Primary Contact Phone</Label>
-            <Input
-              id="add-primaryContactPhone"
-              value={formData.primaryContactPhone || ''}
-              onChange={(e) => setFormData({ ...formData, primaryContactPhone: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-status">Status</Label>
-            <Select
-              id="add-status"
-              value={formData.status || 'Active'}
-              onChange={(value) => setFormData({ ...formData, status: value as any })}
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="Suspended">Suspended</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="add-contractStartDate">Contract Start Date</Label>
-            <DatePicker
-              id="add-contractStartDate"
-              defaultDate={formData.contractStartDate}
-              onChange={(dates, dateStr) => setFormData({ ...formData, contractStartDate: dateStr })}
-              placeholder="Select Date"
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-contractEndDate">Contract End Date</Label>
-            <DatePicker
-              id="add-contractEndDate"
-              defaultDate={formData.contractEndDate}
-              onChange={(dates, dateStr) => setFormData({ ...formData, contractEndDate: dateStr })}
-              placeholder="Select Date"
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-commissionRate">Commission Rate (%)</Label>
-            <Input
-              id="add-commissionRate"
-              type="number"
-              step={0.01}
-              value={formData.commissionRate || ''}
-              onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) || undefined })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-commissionType">Commission Type</Label>
-            <Select
-              id="add-commissionType"
-              value={formData.commissionType || ''}
-              onChange={(value) => setFormData({ ...formData, commissionType: value as any })}
-            >
-              <option value="">Select Type</option>
-              <option value="percentage">Percentage</option>
-              <option value="flat">Flat</option>
-              <option value="tiered">Tiered</option>
-            </Select>
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="add-paymentTerms">Payment Terms</Label>
-            <textarea
-              id="add-paymentTerms"
-              value={formData.paymentTerms || ''}
-              onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              rows={3}
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="add-notes">Notes</Label>
-            <textarea
-              id="add-notes"
-              value={formData.notes || ''}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              rows={3}
-            />
-          </div>
-          <div>
-            <Label htmlFor="contracts">Contracts</Label>
-            <input
-              type="file"
-              id="contracts"
-              multiple
-              onChange={(e) => setContractFiles(Array.from(e.target.files || []))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          <div>
-            <Label htmlFor="agreements">Agreements</Label>
-            <input
-              type="file"
-              id="agreements"
-              multiple
-              onChange={(e) => setAgreementFiles(Array.from(e.target.files || []))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
+
+          {/* Column 3 - Dates, Notes, Documents */}
+          <div className="space-y-2">
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Contract Dates</h4>
+              </div>
+              <div className="space-y-1">
+                <DatePicker id="add-contractStartDate" label="Start Date" defaultDate={formData.contractStartDate} onChange={(dates, dateStr) => setFormData({ ...formData, contractStartDate: dateStr })} placeholder="Select Date" />
+                <DatePicker id="add-contractEndDate" label="End Date" defaultDate={formData.contractEndDate} onChange={(dates, dateStr) => setFormData({ ...formData, contractEndDate: dateStr })} placeholder="Select Date" />
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 bg-slate-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                </div>
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-xs">Additional Info</h4>
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Address</Label>
+                  <textarea value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter address" />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Payment Terms</Label>
+                  <textarea value={formData.paymentTerms || ''} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter payment terms" />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Notes</Label>
+                  <textarea value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30" rows={2} placeholder="Enter notes" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs">Contracts</Label>
+              <input type="file" multiple onChange={(e) => setContractFiles(Array.from(e.target.files || []))} className="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 mt-1" />
+              <Label className="text-gray-700 dark:text-gray-300 font-medium text-xs mt-2">Agreements</Label>
+              <input type="file" multiple onChange={(e) => setAgreementFiles(Array.from(e.target.files || []))} className="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 mt-1" />
+            </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Create Agency
-          </button>
+
+        <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button type="button" onClick={onCancel} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-medium text-sm border border-gray-300 dark:border-gray-600">Cancel</button>
+          <button type="submit" className="bg-blue-600 text-white py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md border border-blue-600">Create Agency</button>
         </div>
       </form>
     );

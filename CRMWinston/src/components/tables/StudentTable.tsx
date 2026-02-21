@@ -2128,27 +2128,20 @@ export default function StudentTable() {
 
     // Handle viewing a file
     const handleViewFile = (file: File) => {
-      console.log('handleViewFile called with file:', file);
-      console.log('Current selectedFiles:', selectedFiles);
-
-      // Create a compatible object structure for the existing modal
-      // Use the original file object directly without creating new blob URLs
+      const blobUrl = URL.createObjectURL(file);
       const fileObject = {
         attributes: {
           mime: file.type,
           Name: file.name,
           size: file.size,
-          url: file // Use the file object directly
+          url: blobUrl
         },
         mime: file.type,
         name: file.name,
         size: file.size,
-        url: file, // Use the file object directly
-        // Store the original file reference
-        originalFile: file
+        url: blobUrl,
+        _blobUrl: blobUrl
       };
-
-      console.log('Created fileObject for modal:', fileObject);
       setSelectedDoc(fileObject);
       setIsDocumentModalOpen(true);
     };
@@ -2492,12 +2485,12 @@ export default function StudentTable() {
                   {selectedFiles.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
                       {selectedFiles.map((file, index) => (
-                        <div key={`file-${file.name}-${file.size}-${index}-${Date.now()}`} className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 group">
+                        <div key={`file-${file.name}-${file.size}-${index}-${Date.now()}`} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 group">
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <span className="text-xl">{getFileIcon(file.type || 'application/octet-stream')}</span>
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-gray-900 text-sm truncate group-hover:text-gray-700">{file.name}</p>
-                              <p className="text-xs text-gray-500 truncate group-hover:text-gray-600">
+                              <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{file.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                 {formatFileSize(file.size)} • {file.type || 'application/octet-stream'}
                               </p>
                             </div>
@@ -2544,8 +2537,8 @@ export default function StudentTable() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-3 text-gray-500">
-                      <svg className="mx-auto h-6 w-6 text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="text-center py-3 text-gray-500 dark:text-gray-400">
+                      <svg className="mx-auto h-6 w-6 text-gray-300 dark:text-gray-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <p className="text-xs">No documents uploaded yet</p>
@@ -2555,21 +2548,11 @@ export default function StudentTable() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('Current selectedFiles state:', selectedFiles);
-                    console.log('selectedFiles length:', selectedFiles.length);
-                  }}
-                  className="bg-yellow-100 text-yellow-700 py-2.5 px-4 rounded-lg hover:bg-yellow-200 transition-all duration-200 font-medium text-xs border border-yellow-300"
-                >
-                  Debug Files
-                </button>
+              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="bg-gray-100 text-gray-700 py-2.5 px-6 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 border border-gray-300"
+                  className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600"
                 >
                   Cancel
                 </button>
@@ -3564,16 +3547,16 @@ export default function StudentTable() {
       {/* Document View Modal */}
       {isDocumentModalOpen && selectedDoc && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{getFileIcon(selectedDoc.attributes?.mime || selectedDoc.mime)}</span>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {selectedDoc.attributes?.Name || selectedDoc.name || 'Document'}
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {formatFileSize(selectedDoc.attributes?.size || selectedDoc.size)} • {selectedDoc.attributes?.mime || selectedDoc.mime || 'Unknown type'}
                     </p>
                   </div>
@@ -3604,6 +3587,9 @@ export default function StudentTable() {
                   {/* Close Button */}
                   <button
                     onClick={() => {
+                      if (selectedDoc?._blobUrl) {
+                        URL.revokeObjectURL(selectedDoc._blobUrl);
+                      }
                       setIsDocumentModalOpen(false);
                       setSelectedDoc(null);
                     }}
@@ -3630,17 +3616,12 @@ export default function StudentTable() {
 
                   if (mimeType?.startsWith('image/')) {
                     if (isFileObject) {
-                      // For File objects, create a blob URL for display
-                      const blobUrl = URL.createObjectURL(fileUrl as File);
+                      const blobUrl = typeof fileUrl === 'string' ? fileUrl : URL.createObjectURL(fileUrl as File);
                       return (
                         <img
                           src={blobUrl}
                           alt={fileName}
                           className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg shadow-lg"
-                          onLoad={() => {
-                            // Clean up blob URL after image loads
-                            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                          }}
                         />
                       );
                     } else {
@@ -3655,22 +3636,12 @@ export default function StudentTable() {
                     }
                   } else if (mimeType?.includes('pdf')) {
                     if (isFileObject) {
-                      // For File objects, create a blob URL for display
-                      const blobUrl = URL.createObjectURL(fileUrl as File);
-                      console.log('📕 PDF viewer - File object, blob URL:', blobUrl);
+                      const blobUrl = typeof fileUrl === 'string' ? fileUrl : URL.createObjectURL(fileUrl as File);
                       return (
                         <iframe
                           src={blobUrl}
                           className="w-full h-[70vh] border-0 rounded-lg"
                           title={fileName}
-                          onLoad={() => {
-                            console.log('✅ PDF loaded successfully');
-                            // Clean up blob URL after iframe loads
-                            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                          }}
-                          onError={(e) => {
-                            console.error('❌ PDF iframe load error:', e);
-                          }}
                         />
                       );
                     } else {
