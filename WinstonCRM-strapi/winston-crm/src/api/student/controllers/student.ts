@@ -94,7 +94,8 @@ export default factories.createCoreController('api::student.student', ({ strapi 
         meta: {}
       };
     } catch (error) {
-      ctx.throw(500, 'Error updating student');
+      console.error('❌ Error updating student:', error);
+      ctx.throw(500, `Error updating student: ${error.message}`);
     }
   },
 
@@ -115,7 +116,8 @@ export default factories.createCoreController('api::student.student', ({ strapi 
         meta: {}
       };
     } catch (error) {
-      ctx.throw(500, 'Error deleting student');
+      console.error('❌ Error deleting student:', error);
+      ctx.throw(500, `Error deleting student: ${error.message}`);
     }
   },
 })); 
