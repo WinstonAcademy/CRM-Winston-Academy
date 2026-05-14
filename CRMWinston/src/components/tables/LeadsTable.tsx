@@ -1248,7 +1248,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
 
   // Handle add new lead
   const handleAddNewLead = () => {
-    setIsAddLeadFormOpen(true);
+    setIsAddFormOpen(true);
     setShowAddLeadDropdown(false);
   };
 
@@ -1576,7 +1576,7 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
           }
         }
 
-        setIsAddLeadFormOpen(false);
+        setIsAddFormOpen(false);
         alert('Lead added successfully!');
         await fetchLeads();
       } else {
