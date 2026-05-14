@@ -1563,7 +1563,10 @@ export default function AgenciesTable() {
           </div>
 
           {/* Table Section with Forced Horizontal Scroll */}
-          <div className="overflow-x-scroll w-full min-w-0 custom-scrollbar shadow-inner bg-gray-50/50 dark:bg-gray-900/50 pb-10">
+          <div 
+            className="overflow-x-scroll w-full min-w-0 custom-scrollbar shadow-inner bg-gray-50/50 dark:bg-gray-900/50 pb-10"
+            style={{ overflowX: 'scroll' }}
+          >
             <table className="min-w-[1600px] divide-y divide-gray-200 dark:divide-gray-800 w-full">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>

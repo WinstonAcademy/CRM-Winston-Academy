@@ -2589,7 +2589,7 @@ export default function StudentTable() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 w-full max-w-full overflow-hidden min-w-0">
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 w-full max-w-full min-w-0">
       {/* Table Header - Controls and Bulk Actions */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
         {/* Toolbar Row: Search/Filters on Left, Action Buttons on Right */}
@@ -3092,7 +3092,10 @@ export default function StudentTable() {
 
 
       {/* Table Section with Forced Horizontal Scroll */}
-      <div className="overflow-x-scroll w-full min-w-0 custom-scrollbar shadow-inner bg-gray-50/50 dark:bg-gray-900/50 pb-10">
+      <div 
+        className="overflow-x-scroll w-full min-w-0 custom-scrollbar shadow-inner bg-gray-50/50 dark:bg-gray-900/50 pb-10"
+        style={{ overflowX: 'scroll' }}
+      >
         <table className="min-w-[1600px] divide-y divide-gray-200 dark:divide-gray-800 w-full">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
