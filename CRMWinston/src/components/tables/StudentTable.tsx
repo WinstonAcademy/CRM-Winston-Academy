@@ -1493,6 +1493,8 @@ export default function StudentTable() {
       }
 
       try {
+        console.log('📤 Updating student:', student.id, formData);
+        
         // Update the student in the backend
         const response = await fetch(`${API_CONFIG.STRAPI_URL}/api/students/${student.id}`, {
           method: 'PUT',
@@ -1502,26 +1504,27 @@ export default function StudentTable() {
           },
           body: JSON.stringify({
             data: {
-              regNo: formData.regNo,
+              regNo: formData.regNo || null,
               name: formData.name,
               email: formData.email,
               phone: formData.phone,
-              course: formData.course,
+              course: formData.course || null,
               country: formData.country,
-              source: formData.source,
-              notes: formData.notes,
-              birthdate: formData.birthdate,
-              startDate: formData.startDate,
-              endDate: formData.endDate,
+              source: formData.source || null,
+              notes: formData.notes || null,
+              // Convert empty strings to null for date fields (Strapi requirement)
+              birthdate: formData.birthdate && formData.birthdate.trim() ? formData.birthdate : null,
+              startDate: formData.startDate && formData.startDate.trim() ? formData.startDate : null,
+              endDate: formData.endDate && formData.endDate.trim() ? formData.endDate : null,
               enrollmentStatus: formData.enrollmentStatus,
-              applicationStatus: formData.applicationStatus
+              applicationStatus: formData.applicationStatus || null
             }
           }),
         });
 
         if (response.ok) {
+          console.log('✅ Student updated successfully');
           // Update local state
-          const updatedStudent = await response.json();
           const updatedStudents = students.map(s =>
             s.id === student.id
               ? { ...s, ...formData, id: s.id }
@@ -1532,11 +1535,13 @@ export default function StudentTable() {
           alert('Student updated successfully!');
           onSave(formData);
         } else {
-          alert('Failed to update student');
+          const errorData = await response.text();
+          console.error('❌ Failed to update student:', response.status, errorData);
+          alert(`Failed to update student: ${response.statusText}`);
         }
       } catch (error) {
-        console.error('Error updating student:', error);
-        alert('Error updating student');
+        console.error('❌ Error updating student:', error);
+        alert('Error updating student. Check console for details.');
       }
     };
 
