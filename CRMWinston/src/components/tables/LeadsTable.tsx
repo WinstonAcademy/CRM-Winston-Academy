@@ -3223,8 +3223,8 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         </div>
       </div>
 
-      {/* Table Section with Horizontal Scroll */}
-      <div className="overflow-x-auto w-full min-w-0 custom-scrollbar">
+      {/* Table Section with Forced Horizontal Scroll */}
+      <div className="overflow-x-scroll w-full min-w-0 custom-scrollbar shadow-inner bg-gray-50/50 dark:bg-gray-900/50">
         <table className="min-w-[1200px] divide-y divide-gray-200 dark:divide-gray-800 w-full">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
