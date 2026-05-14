@@ -1562,9 +1562,9 @@ export default function AgenciesTable() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto w-full min-w-0">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 w-full">
+          {/* Table Section with Horizontal Scroll */}
+          <div className="overflow-x-auto w-full min-w-0 custom-scrollbar">
+            <table className="min-w-[1200px] divide-y divide-gray-200 dark:divide-gray-800 w-full">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="px-6 py-2 text-left">

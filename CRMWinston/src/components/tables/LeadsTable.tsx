@@ -3223,9 +3223,9 @@ export default function LeadsTable({ initialStatusFilter }: { initialStatusFilte
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto w-full min-w-0">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 w-full">
+      {/* Table Section with Horizontal Scroll */}
+      <div className="overflow-x-auto w-full min-w-0 custom-scrollbar">
+        <table className="min-w-[1200px] divide-y divide-gray-200 dark:divide-gray-800 w-full">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               {/* Select All Checkbox */}
