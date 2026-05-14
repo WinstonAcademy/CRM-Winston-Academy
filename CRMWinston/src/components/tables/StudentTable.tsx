@@ -1498,6 +1498,7 @@ export default function StudentTable() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${realBackendAuthService.getCurrentToken()}`,
           },
           body: JSON.stringify({
             data: {
@@ -1716,7 +1717,8 @@ export default function StudentTable() {
                 <div>
                   <Label htmlFor="birthdate" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Birth Date</Label>
                   <DatePicker
-                    id="birthdate"
+                    id="edit-birthdate"
+                    defaultDate={formData.birthdate ? new Date(formData.birthdate) : undefined}
                     onChange={(selectedDates) => {
                       if (selectedDates && selectedDates.length > 0) {
                         handleChange('birthdate', selectedDates[0].toISOString().split('T')[0]);
@@ -1762,7 +1764,8 @@ export default function StudentTable() {
                 <div>
                   <Label htmlFor="startDate" className="text-gray-700 font-medium text-xs">Start Date</Label>
                   <DatePicker
-                    id="startDate"
+                    id="edit-startDate"
+                    defaultDate={formData.startDate ? new Date(formData.startDate) : undefined}
                     onChange={(selectedDates) => {
                       if (selectedDates && selectedDates.length > 0) {
                         handleChange('startDate', selectedDates[0].toISOString().split('T')[0]);
@@ -1775,7 +1778,8 @@ export default function StudentTable() {
                 <div>
                   <Label htmlFor="endDate" className="text-gray-700 font-medium text-xs">End Date</Label>
                   <DatePicker
-                    id="endDate"
+                    id="edit-endDate"
+                    defaultDate={formData.endDate ? new Date(formData.endDate) : undefined}
                     onChange={(selectedDates) => {
                       if (selectedDates && selectedDates.length > 0) {
                         handleChange('endDate', selectedDates[0].toISOString().split('T')[0]);
@@ -2330,14 +2334,13 @@ export default function StudentTable() {
                       <div>
                         <Label htmlFor="birthdate" className="text-gray-700 dark:text-gray-300 font-medium text-xs">Birth Date</Label>
                         <DatePicker
-                          id="birthdate"
-                          onChange={[
-                            (selectedDates) => {
-                              if (selectedDates && selectedDates.length > 0) {
-                                handleChange('birthdate', selectedDates[0].toISOString().split('T')[0]);
-                              }
+                          id="add-birthdate"
+                          defaultDate={formData.birthdate ? new Date(formData.birthdate) : undefined}
+                          onChange={(selectedDates) => {
+                            if (selectedDates && selectedDates.length > 0) {
+                              handleChange('birthdate', selectedDates[0].toISOString().split('T')[0]);
                             }
-                          ]}
+                          }}
                           placeholder="Select birth date"
                         />
                       </div>
@@ -2378,14 +2381,13 @@ export default function StudentTable() {
                       <div>
                         <Label htmlFor="startDate" className="text-gray-700 font-medium text-xs">Start Date</Label>
                         <DatePicker
-                          id="startDate"
-                          onChange={[
-                            (selectedDates) => {
-                              if (selectedDates && selectedDates.length > 0) {
-                                handleChange('startDate', selectedDates[0].toISOString().split('T')[0]);
-                              }
+                          id="add-startDate"
+                          defaultDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                          onChange={(selectedDates) => {
+                            if (selectedDates && selectedDates.length > 0) {
+                              handleChange('startDate', selectedDates[0].toISOString().split('T')[0]);
                             }
-                          ]}
+                          }}
                           placeholder="Select start date"
                         />
                       </div>
@@ -2393,14 +2395,13 @@ export default function StudentTable() {
                       <div>
                         <Label htmlFor="endDate" className="text-gray-700 font-medium text-xs">End Date</Label>
                         <DatePicker
-                          id="endDate"
-                          onChange={[
-                            (selectedDates) => {
-                              if (selectedDates && selectedDates.length > 0) {
-                                handleChange('endDate', selectedDates[0].toISOString().split('T')[0]);
-                              }
+                          id="add-endDate"
+                          defaultDate={formData.endDate ? new Date(formData.endDate) : undefined}
+                          onChange={(selectedDates) => {
+                            if (selectedDates && selectedDates.length > 0) {
+                              handleChange('endDate', selectedDates[0].toISOString().split('T')[0]);
                             }
-                          ]}
+                          }}
                           placeholder="Select end date"
                         />
                       </div>
