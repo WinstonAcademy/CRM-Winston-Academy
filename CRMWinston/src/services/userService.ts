@@ -12,6 +12,8 @@ export interface User {
   canAccessStudents: boolean;
   canAccessUsers: boolean;
   canAccessDashboard: boolean;
+  canAccessAgencies: boolean;
+  canAccessTimesheets: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +30,8 @@ export interface CreateUserData {
   canAccessStudents?: boolean;
   canAccessUsers?: boolean;
   canAccessDashboard?: boolean;
+  canAccessAgencies?: boolean;
+  canAccessTimesheets?: boolean;
   isActive?: boolean;
 }
 
@@ -36,6 +40,8 @@ export interface UserPermissions {
   canAccessStudents: boolean;
   canAccessUsers: boolean;
   canAccessDashboard: boolean;
+  canAccessAgencies: boolean;
+  canAccessTimesheets: boolean;
 }
 
 export interface UpdateUserData {
@@ -49,6 +55,8 @@ export interface UpdateUserData {
   canAccessStudents?: boolean;
   canAccessUsers?: boolean;
   canAccessDashboard?: boolean;
+  canAccessAgencies?: boolean;
+  canAccessTimesheets?: boolean;
   isActive?: boolean;
 }
 
@@ -58,43 +66,57 @@ export const DEFAULT_PERMISSIONS = {
     canAccessLeads: true,
     canAccessStudents: true,
     canAccessUsers: true,
-    canAccessDashboard: true
+    canAccessDashboard: true,
+    canAccessAgencies: true,
+    canAccessTimesheets: true
   },
   manager: {
     canAccessLeads: true,
     canAccessStudents: true,
     canAccessUsers: false,
-    canAccessDashboard: true
+    canAccessDashboard: true,
+    canAccessAgencies: true,
+    canAccessTimesheets: true
   },
   supervisor: {
     canAccessLeads: true,
     canAccessStudents: true,
     canAccessUsers: false,
-    canAccessDashboard: true
+    canAccessDashboard: true,
+    canAccessAgencies: true,
+    canAccessTimesheets: true
   },
   coordinator: {
     canAccessLeads: true,
     canAccessStudents: false,
     canAccessUsers: false,
-    canAccessDashboard: true
+    canAccessDashboard: true,
+    canAccessAgencies: true,
+    canAccessTimesheets: true
   },
   team_member: {
     canAccessLeads: true,
     canAccessStudents: false,
     canAccessUsers: false,
-    canAccessDashboard: true
+    canAccessDashboard: true,
+    canAccessAgencies: true,
+    canAccessTimesheets: true
   },
   assistant: {
     canAccessLeads: true,
     canAccessStudents: false,
     canAccessUsers: false,
-    canAccessDashboard: false
+    canAccessDashboard: false,
+    canAccessAgencies: false,
+    canAccessTimesheets: false
   },
   intern: {
     canAccessLeads: false,
     canAccessStudents: false,
     canAccessUsers: false,
-    canAccessDashboard: false
+    canAccessDashboard: false,
+    canAccessAgencies: false,
+    canAccessTimesheets: false
   }
 } as const;
 
@@ -186,6 +208,8 @@ class UserService {
         canAccessStudents: userData.canAccessStudents ?? defaultPermissions.canAccessStudents,
         canAccessUsers: userData.canAccessUsers ?? defaultPermissions.canAccessUsers,
         canAccessDashboard: userData.canAccessDashboard ?? defaultPermissions.canAccessDashboard,
+        canAccessAgencies: userData.canAccessAgencies ?? defaultPermissions.canAccessAgencies,
+        canAccessTimesheets: userData.canAccessTimesheets ?? defaultPermissions.canAccessTimesheets,
       };
       
       const response = await fetch(`${this.baseUrl}/users`, {
@@ -269,6 +293,8 @@ class UserService {
     canAccessStudents: boolean;
     canAccessUsers: boolean;
     canAccessDashboard: boolean;
+    canAccessAgencies: boolean;
+    canAccessTimesheets: boolean;
   }, token: string): Promise<User> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${id}`, {
@@ -340,6 +366,10 @@ class UserService {
         return user.canAccessUsers;
       case 'dashboard':
         return user.canAccessDashboard;
+      case 'agencies':
+        return user.canAccessAgencies;
+      case 'timesheets':
+        return user.canAccessTimesheets;
       default:
         return false;
     }

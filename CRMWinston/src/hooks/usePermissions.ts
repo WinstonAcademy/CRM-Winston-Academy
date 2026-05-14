@@ -29,7 +29,6 @@ export const usePermissions = () => {
         console.log('🔍 usePermissions: canAccessUsers:', canAccessUsers);
         return canAccessUsers;
       case 'agencies':
-        // @ts-ignore
         const canAccessAgencies = user.canAccessAgencies ?? false;
         console.log('🔍 usePermissions: canAccessAgencies:', canAccessAgencies);
         return canAccessAgencies;
@@ -98,10 +97,10 @@ export const usePermissions = () => {
     if (!isAdmin()) return false;
     return user?.canAccessLeads &&
       user?.canAccessStudents &&
-      user?.canAccessStudents &&
       user?.canAccessUsers &&
       user?.canAccessAgencies &&
-      user?.canAccessDashboard;
+      user?.canAccessDashboard &&
+      user?.canAccessTimesheets;
   };
 
   return {

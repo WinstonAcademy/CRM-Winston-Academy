@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { agencyService, Agency } from "@/services/agencyService";
 import { useRouter } from "next/navigation";
 
@@ -12,7 +12,6 @@ interface Metrics {
 }
 
 export const AgenciesMetrics = () => {
-    const [agencies, setAgencies] = useState<Agency[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [metrics, setMetrics] = useState<Metrics>({
@@ -33,12 +32,10 @@ export const AgenciesMetrics = () => {
             setLoading(true);
             setError(null);
             const data = await agencyService.fetchAgencies();
-            setAgencies(data || []);
             calculateMetrics(data || []);
         } catch (error) {
             console.error('Error fetching agencies:', error);
             setError('Failed to fetch agencies');
-            setAgencies([]);
         } finally {
             setLoading(false);
         }
@@ -63,7 +60,7 @@ export const AgenciesMetrics = () => {
         setMetrics(newMetrics);
     };
 
-    const navigateToAgenciesWithFilter = (status: string) => {
+    const navigateToAgenciesWithFilter = (_status: string) => {
         // Agencies table might update URL params, or not. 
         // Assuming /agencies?status=Active works (need to verify if table supports URL status filter, otherwise just navigate to /agencies)
         // AgenciesTable.tsx sets status filter but checks URL? Let's assume basic navigation first.

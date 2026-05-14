@@ -1529,13 +1529,14 @@ export default function TimesheetTable() {
                     Save
                   </button>
                 </div>
-              </form>
+            </form>
             </div>
           </div>
+        </div>
       )}
 
-          {/* Edit Timesheet Modal */}
-          {isEditFormOpen && currentTimesheet && (() => {
+      {/* Edit Timesheet Modal */}
+      {isEditFormOpen && currentTimesheet && (() => {
             // Use a sub-component pattern via IIFE to allow hooks-like state
             // We use hidden inputs to work with FormData while showing TimePicker
             const EditTimesheetForm = () => {
@@ -1646,91 +1647,88 @@ export default function TimesheetTable() {
             return <EditTimesheetForm />;
           })()}
 
-          {/* Clock In Modal */}
-          {
-            showClockInModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
-                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock In</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="clockInLocation">Location</Label>
-                      <Select
-                        value={clockInLocation}
-                        onChange={(value) => setClockInLocation(value as "Office" | "Work from Home")}
-                        options={[
-                          { value: 'Office', label: 'Office' },
-                          { value: 'Work from Home', label: 'Work from Home' }
-                        ]}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 mt-6">
-                      <button
-                        onClick={() => setShowClockInModal(false)}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleClockInSubmit}
-                        className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
-                      >
-                        Confirm Clock In
-                      </button>
-                    </div>
-                  </div>
-                </div>
+      {/* Clock In Modal */}
+      {showClockInModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock In</h2>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="clockInLocation">Location</Label>
+                <Select
+                  value={clockInLocation}
+                  onChange={(value) => setClockInLocation(value as "Office" | "Work from Home")}
+                  options={[
+                    { value: 'Office', label: 'Office' },
+                    { value: 'Work from Home', label: 'Work from Home' }
+                  ]}
+                />
               </div>
-            )
-          }
-
-          {/* Clock Out Modal */}
-          {
-            showClockOutModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
-                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock Out</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="clockOutNotes">What did you work on today?</Label>
-                      <textarea
-                        id="clockOutNotes"
-                        value={clockOutNotes}
-                        onChange={(e) => setClockOutNotes(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        rows={3}
-                        placeholder="Summarize your tasks..."
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="clockOutNoteToAdmin">Note to Admin (Optional)</Label>
-                      <Input
-                        id="clockOutNoteToAdmin"
-                        value={clockOutNoteToAdmin}
-                        onChange={(e) => setClockOutNoteToAdmin(e.target.value)}
-                        placeholder="Any issues or requests?"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 mt-6">
-                      <button
-                        onClick={() => setShowClockOutModal(false)}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleClockOutSubmit}
-                        className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
-                      >
-                        Confirm Clock Out
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setShowClockInModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClockInSubmit}
+                  className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+                >
+                  Confirm Clock In
+                </button>
               </div>
-            )
-          }
+            </div>
+          </div>
         </div>
-      );
+      )}
+
+      {/* Clock Out Modal */}
+      {showClockOutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Clock Out</h2>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="clockOutNotes">What did you work on today?</Label>
+                <textarea
+                  id="clockOutNotes"
+                  value={clockOutNotes}
+                  onChange={(e) => setClockOutNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  rows={3}
+                  placeholder="Summarize your tasks..."
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="clockOutNoteToAdmin">Note to Admin (Optional)</Label>
+                <Input
+                  id="clockOutNoteToAdmin"
+                  value={clockOutNoteToAdmin}
+                  onChange={(e) => setClockOutNoteToAdmin(e.target.value)}
+                  placeholder="Any issues or requests?"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setShowClockOutModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClockOutSubmit}
+                  className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+                >
+                  Confirm Clock Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
+

@@ -1,15 +1,15 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { VectorMap } from "@react-jvectormap/core";
+import React, { useState, useEffect, ComponentType } from "react";
 import { worldMill } from "@react-jvectormap/world";
 import { agencyService, Agency } from "@/services/agencyService";
 import dynamic from "next/dynamic";
 
 // Dynamically import VectorMap to avoid SSR issues
+// Cast as ComponentType<any> to avoid TypeScript errors on jvectormap prop types
 const DynamicVectorMap = dynamic(
     () => import("@react-jvectormap/core").then((mod) => mod.VectorMap),
     { ssr: false }
-);
+) as ComponentType<any>;
 
 interface CountryAgenciesData {
     [countryCode: string]: {
@@ -322,7 +322,7 @@ export const AgenciesDemographic = () => {
                 }
                 return null;
             })
-            .filter(Boolean);
+            .filter((m): m is NonNullable<typeof m> => m !== null);
     }, [countryAgencies, topCountries]);
 
     if (error) {
@@ -400,7 +400,7 @@ export const AgenciesDemographic = () => {
                                 hover: {
                                     fillOpacity: 0.8,
                                     cursor: "pointer",
-                                },
+                                } as any,
                             }}
                         />
                     </div>
